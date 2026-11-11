@@ -1,0 +1,7 @@
+{
+  "name": "core",
+  "description": "どの環境でも使う作業の型（completion-criteria）",
+  "author": {
+    "name": "pky"
+  }
+}
