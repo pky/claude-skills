@@ -23,8 +23,6 @@ PR を自動で進めたくない環境では pr-auto を入れない。
 
 自作ではないスキル。中身はこのリポジトリに入れず、配布元から入れる。
 
-- handoff: `npx skills add thedotmack/claude-mem --skill handoff` https://github.com/thedotmack/claude-mem （claude-mem の中のスキル）
-- find-skills: `npx skills add vercel-labs/skills --skill find-skills` https://github.com/vercel-labs/skills
 - security-audit: `npx skills add cloudflare/security-audit-skill --skill security-audit` https://github.com/cloudflare/security-audit-skill
 - stack-diagram: `npx skills add caru-ini/stack-diagram` https://github.com/caru-ini/stack-diagram
 - yomiyasu: `npx skills add nanaism/yomiyasu` https://github.com/nanaism/yomiyasu
