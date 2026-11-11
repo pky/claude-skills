@@ -1,0 +1,7 @@
+{
+  "name": "ios",
+  "description": "iOS 実機での動作確認（ios-device-check）",
+  "author": {
+    "name": "pky"
+  }
+}

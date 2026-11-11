@@ -1,0 +1,8 @@
+{
+  "name": "pr-auto",
+  "description": "PR を作った後の見張りと片付け（babysit）。PR を自動で進めたくない環境では入れない",
+  "author": {
+    "name": "pky"
+  },
+  "dependencies": ["worktrunk"]
+}

@@ -1,0 +1,34 @@
+{
+  "name": "pky-skills",
+  "owner": {
+    "name": "pky"
+  },
+  "description": "pky の自作スキル集",
+  "plugins": [
+    {
+      "name": "core",
+      "source": "./plugins/core",
+      "description": "どの環境でも使う作業の型（completion-criteria）"
+    },
+    {
+      "name": "pr-auto",
+      "source": "./plugins/pr-auto",
+      "description": "PR を作った後の見張りと片付け（babysit）。PR を自動で進めたくない環境では入れない"
+    },
+    {
+      "name": "worktrunk",
+      "source": "./plugins/worktrunk",
+      "description": "Worktrunk（wt）で worktree を作る・消す手順（worktree-flow）"
+    },
+    {
+      "name": "herdr",
+      "source": "./plugins/herdr",
+      "description": "Herdr のペインで Codex を動かす手順（codex-in-herdr）"
+    },
+    {
+      "name": "ios",
+      "source": "./plugins/ios",
+      "description": "iOS 実機での動作確認（ios-device-check）"
+    }
+  ]
+}

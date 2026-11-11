@@ -1,0 +1,7 @@
+{
+  "name": "worktrunk",
+  "description": "Worktrunk（wt）で worktree を作る・消す手順（worktree-flow）",
+  "author": {
+    "name": "pky"
+  }
+}
