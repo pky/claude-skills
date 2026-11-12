@@ -1,0 +1,11 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "pr-auto",
+  "version": "0.2.0",
+  "description": "PRのCIと最新headのレビューを確認し、許可範囲の修正を調整する",
+  "extensions": {
+    "com.openai": {
+      "hooks": []
+    }
+  }
+}
