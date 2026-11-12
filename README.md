@@ -1,6 +1,6 @@
 # claude-skills
 
-pky の自作スキルを Claude Code のプラグインとして配るマーケットプレイス。
+pky の自作スキルを Claude Code と Codex のプラグインとして配るマーケットプレイス。
 
 ## 入れ方
 
@@ -23,13 +23,17 @@ PR を自動で進めたくない環境では pr-auto を入れない。
 
 同じリポジトリを Codex に登録し、必要なプラグインを導入する。
 
+仕事Macの既存設定を保全して導入する場合は、[Codex単独統括環境の導入手順](docs/codex-setup.md)をCodexへ渡す。
+
 ```bash
-codex plugin marketplace add pky/claude-skills --ref main
+codex plugin marketplace add pky/claude-skills --ref feature/codex-marketplace
 codex plugin add core@pky-codex-skills
 codex plugin add pr-auto@pky-codex-skills
 codex plugin add worktrunk@pky-codex-skills
 codex plugin add herdr@pky-codex-skills
 ```
+
+現在の検証済み公開ブランチは `feature/codex-marketplace`。mainへの反映を確認後、参照refを `main` に変更する。
 
 Codex 版は `git push` を実行せず、worktree やブランチも自動削除しない。削除は対象を明示した依頼がある場合だけ行う。
 
