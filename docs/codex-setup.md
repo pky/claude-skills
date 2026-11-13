@@ -37,8 +37,6 @@ ls -ld "${CODEX_HOME:-$HOME/.codex}/AGENTS.md" "${CODEX_HOME:-$HOME/.codex}/conf
 
 ## 3. GitHubからプラグインを導入する
 
-現在の検証済み公開ブランチは `feature/codex-marketplace` です。Codex版はmainに未反映のため、今は `--ref main` を指定しません。mainへの反映を確認した後に、この文書と登録先の参照refを `main` に変更します。
-
 導入前に、CLIのヘルプと現在の登録状態から同名marketplaceのsource・ref・有効プラグインを確認し、非公開で記録します。同じsource・refと導入済みのプラグインは重複導入しません。同名sourceが異なる場合だけ、既存設定と旧sourceへの復旧方法を確認・退避した上で、対象の登録を外して再登録します。
 
 ```bash
@@ -48,7 +46,7 @@ codex plugin marketplace remove pky-codex-skills
 上のremoveはsourceの差し替えが必要な場合だけ実行します。新規登録・未導入分には、次を順に実行します。他のmarketplaceやプラグインは保持します。
 
 ```bash
-codex plugin marketplace add pky/claude-skills --ref feature/codex-marketplace
+codex plugin marketplace add pky/claude-skills --ref main
 codex plugin add core@pky-codex-skills
 codex plugin add pr-auto@pky-codex-skills
 codex plugin add worktrunk@pky-codex-skills
