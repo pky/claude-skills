@@ -1,0 +1,11 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "herdr",
+  "version": "0.2.0",
+  "description": "Codex統括がHerdrで独立した作業者セッションを管理する",
+  "extensions": {
+    "com.openai": {
+      "hooks": []
+    }
+  }
+}

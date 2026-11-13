@@ -1,0 +1,11 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "core",
+  "version": "0.2.0",
+  "description": "実装前の観測可能な完了条件と検証方法を定める",
+  "extensions": {
+    "com.openai": {
+      "hooks": []
+    }
+  }
+}

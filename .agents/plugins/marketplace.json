@@ -1,0 +1,68 @@
+{
+  "name": "pky-codex-skills",
+  "interface": {
+    "displayName": "pky Codex用スキル"
+  },
+  "plugins": [
+    {
+      "name": "core",
+      "source": {
+        "source": "local",
+        "path": "./codex/plugins/core"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "pr-auto",
+      "source": {
+        "source": "local",
+        "path": "./codex/plugins/pr-auto"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "worktrunk",
+      "source": {
+        "source": "local",
+        "path": "./codex/plugins/worktrunk"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "herdr",
+      "source": {
+        "source": "local",
+        "path": "./codex/plugins/herdr"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "ios",
+      "source": {
+        "source": "local",
+        "path": "./plugins/ios"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

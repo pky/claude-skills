@@ -1,0 +1,11 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "worktrunk",
+  "version": "0.2.0",
+  "description": "Worktrunkで作業を分離し、必要な資料を安全に引き継ぐ",
+  "extensions": {
+    "com.openai": {
+      "hooks": []
+    }
+  }
+}
