@@ -29,6 +29,11 @@
       "name": "ios",
       "source": "./plugins/ios",
       "description": "iOS 実機での動作確認（ios-device-check）"
+    },
+    {
+      "name": "clip",
+      "source": "./plugins/clip",
+      "description": "記事や X の投稿を必要な部分だけ読み、自分の環境に合うかを照合する（clip）"
     }
   ]
 }
