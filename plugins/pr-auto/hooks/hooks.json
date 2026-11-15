@@ -21,8 +21,8 @@
           {
             "if": "Bash(gh pr create *)",
             "type": "command",
-            "command": "cat",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/context/babysit-reminder.json"],
+            "command": "python3",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/babysit-reminder.py"],
             "timeout": 10
           }
         ]
