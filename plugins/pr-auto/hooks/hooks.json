@@ -1,5 +1,5 @@
 {
-  "description": "PR の自動作成の決まりをセッション開始時に渡す",
+  "description": "PR の自動作成の決まりをセッション開始時に渡し、PR を作った直後に babysit の開始を知らせる",
   "hooks": {
     "SessionStart": [
       {
@@ -9,6 +9,20 @@
             "type": "command",
             "command": "cat",
             "args": ["${CLAUDE_PLUGIN_ROOT}/context/pr-auto.md"],
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "if": "Bash(gh pr create *)",
+            "type": "command",
+            "command": "python3",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/babysit-reminder.py"],
             "timeout": 10
           }
         ]
