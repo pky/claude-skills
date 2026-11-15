@@ -1,0 +1,7 @@
+{
+  "name": "clip",
+  "description": "記事や X の投稿を必要な部分だけ読み、自分の環境に合うかを照合する（clip）",
+  "author": {
+    "name": "pky"
+  }
+}

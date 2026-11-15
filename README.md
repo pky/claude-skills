@@ -14,6 +14,7 @@ pky の自作スキルを Claude Code のプラグインとして配るマーケ
 - worktrunk: Worktrunk（wt）で worktree を作る・消す手順（worktree-flow）
 - herdr: Herdr のペインで Codex を動かす手順（codex-in-herdr）
 - ios: iOS 実機での動作確認（ios-device-check）
+- clip: 記事や X の投稿を必要な部分だけ読み、自分の環境に合うかを照合する（clip）
 
 PR を自動で進めたくない環境では pr-auto を入れない。
 
