@@ -44,6 +44,18 @@ def reason_head(reason):
     return re.sub(r"\d", "#", line[:80])
 
 
+def error_head(error):
+    skipped_exit_code = False
+    for line in error.splitlines():
+        if not line.strip():
+            continue
+        if re.fullmatch(r"Exit code \d+", line.strip()):
+            skipped_exit_code = True
+            continue
+        return reason_head(line)
+    return "Exit code #" if skipped_exit_code else ""
+
+
 def summarize_input(tool, tool_input):
     if isinstance(tool_input, dict) and tool == "Bash":
         summary = tool_input.get("command", "")
@@ -209,7 +221,7 @@ class Extractor:
             )
         elif block.get("is_error"):
             error = text_content(block.get("content"))
-            head = reason_head(error)
+            head = error_head(error)
             key = command_key(tool, tool_input)
             add_group(
                 self.failures, (tool, key, head),
