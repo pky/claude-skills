@@ -151,13 +151,6 @@ class Extractor:
                     continue
                 if not isinstance(record, dict):
                     continue
-                timestamp = record.get("timestamp")
-                if timestamp:
-                    try:
-                        if parse_time(timestamp) < self.since:
-                            continue
-                    except (AttributeError, TypeError, ValueError):
-                        continue
                 self.read_record(record, project, subagent, calls)
 
     def read_record(self, record, project, subagent, calls):
@@ -169,9 +162,26 @@ class Extractor:
         if not isinstance(session, str):
             return
         session_key = (project, session)
+        origin = record.get("origin")
+        human = (
+            not subagent and record.get("type") == "user"
+            and isinstance(content, str) and not record.get("isMeta")
+            and isinstance(origin, dict) and origin.get("kind") == "human"
+        )
+        # 範囲外の発言も含めて、先に最初の発言を判定する。
+        first = human and session_key not in self.human_sessions
+        if human:
+            self.human_sessions.add(session_key)
+        timestamp = record.get("timestamp")
+        try:
+            parsed_time = parse_time(timestamp) if isinstance(timestamp, str) else None
+        except (ValueError, OverflowError):
+            parsed_time = None
+        if parsed_time is not None and parsed_time < self.since:
+            return
         metadata = {
             "project": project, "session": session,
-            "timestamp": record.get("timestamp"),
+            "timestamp": timestamp if parsed_time is not None else None,
         }
         if record.get("type") == "assistant" and isinstance(content, list):
             if not subagent:
@@ -189,25 +199,19 @@ class Extractor:
                         tool_id = block.get("tool_use_id")
                         call = calls.get((session, tool_id), {}) if isinstance(tool_id, str) else {}
                         self.read_result(record, block, call, metadata)
-            elif isinstance(content, str) and not subagent:
-                origin = record.get("origin")
-                if (record.get("isMeta") or not isinstance(origin, dict)
-                        or origin.get("kind") != "human"):
-                    return
-                first = session_key not in self.human_sessions
-                self.human_sessions.add(session_key)
+            elif human:
                 if first or content.startswith(("<", "/")):
                     return
                 self.corrections_total += 1
                 if not any(phrase in content for phrase in CORRECTION_KEYWORDS):
                     return
                 self.corrections.append(dict(
-                    metadata, text=content[:300],
+                    metadata, cwd=record.get("cwd", ""), text=content[:300],
                     prev_assistant=self.previous_assistant.get(session_key, ""),
                 ))
 
     def read_result(self, record, block, call, metadata):
-        tool = call.get("name", "")
+        tool = str(call.get("name", ""))
         tool_input = call.get("input", {})
         example = dict(metadata, input=summarize_input(tool, tool_input))
         blocked = blocked_reason(record, block.get("content"))
@@ -289,7 +293,8 @@ def main():
             else datetime.min.replace(tzinfo=timezone.utc),
         ),
     }
-    print(json.dumps(result, ensure_ascii=False, indent=1))
+    output = json.dumps(result, ensure_ascii=False, indent=1)
+    print(output.encode("utf-8", errors="backslashreplace").decode("utf-8"))
     return 0
 
 
