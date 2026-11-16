@@ -172,6 +172,11 @@ class Extractor:
         first = human and session_key not in self.human_sessions
         if human:
             self.human_sessions.add(session_key)
+        # 範囲外の記録も含めて、本文のある最後の説明を保持する。
+        if not subagent and record.get("type") == "assistant" and isinstance(content, list):
+            assistant_text = text_content(content)
+            if assistant_text:
+                self.previous_assistant[session_key] = assistant_text[-200:]
         timestamp = record.get("timestamp")
         try:
             parsed_time = parse_time(timestamp) if isinstance(timestamp, str) else None
@@ -184,8 +189,6 @@ class Extractor:
             "timestamp": timestamp if parsed_time is not None else None,
         }
         if record.get("type") == "assistant" and isinstance(content, list):
-            if not subagent:
-                self.previous_assistant[session_key] = text_content(content)[-200:]
             for block in content:
                 if not isinstance(block, dict) or block.get("type") != "tool_use":
                     continue
