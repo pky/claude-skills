@@ -11,9 +11,11 @@ import shlex
 import sys
 
 
-HINTS = (
+CORRECTION_KEYWORDS = (
     "違う", "ちがう", "じゃなく", "ではなく", "しないで", "やめて", "なんで",
-    "なぜ", "言った", "勝手", "戻して", "聞いてない", "ダメ", "だめ",
+    "なぜ", "言った", "言って", "勝手", "戻して", "聞いてない", "ダメ", "だめ",
+    "だろ", "だから", "わからない", "わかりにくい", "意味", "いや、", "いや ",
+    "というか", "んだが", "んだよ",
 )
 
 
@@ -49,7 +51,7 @@ def summarize_input(tool, tool_input):
         summary = tool_input["file_path"]
     else:
         summary = json.dumps(tool_input, ensure_ascii=False, separators=(",", ":"))
-    return str(summary)[:200]
+    return str(summary)[:150]
 
 
 def command_key(tool, tool_input):
@@ -82,7 +84,7 @@ def add_group(groups, key, fields, example):
     group = groups[key]
     group["count"] += 1
     group["sessions"].add(example["session"])
-    if len(group["examples"]) < 3:
+    if len(group["examples"]) < 2:
         group["examples"].append(example)
 
 
@@ -121,6 +123,7 @@ class Extractor:
         self.since = since
         self.blocked = {}
         self.failures = {}
+        self.corrections_total = 0
         self.corrections = []
         self.human_sessions = set()
         self.previous_assistant = {}
@@ -183,10 +186,12 @@ class Extractor:
                 self.human_sessions.add(session_key)
                 if first or content.startswith(("<", "/")):
                     return
+                self.corrections_total += 1
+                if not any(phrase in content for phrase in CORRECTION_KEYWORDS):
+                    return
                 self.corrections.append(dict(
                     metadata, text=content[:300],
                     prev_assistant=self.previous_assistant.get(session_key, ""),
-                    hint=any(phrase in content for phrase in HINTS),
                 ))
 
     def read_result(self, record, block, call, metadata):
@@ -200,7 +205,7 @@ class Extractor:
             add_group(
                 self.blocked, (source, tool, head),
                 {"source": source, "tool": tool, "reason_head": head},
-                dict(example, reason=reason[:300]),
+                dict(example, reason=reason[:200]),
             )
         elif block.get("is_error"):
             error = text_content(block.get("content"))
@@ -209,7 +214,7 @@ class Extractor:
             add_group(
                 self.failures, (tool, key, head),
                 {"tool": tool, "command_key": key, "error_head": head},
-                dict(example, error=error[:300]),
+                dict(example, error=error[:200]),
             )
 
 
@@ -265,13 +270,11 @@ def main():
         "root": str(root), "files": counts[0], "subagent_files": counts[1],
         "blocked": finish_groups(extractor.blocked, "reason_head"),
         "failures": finish_groups(extractor.failures, "error_head", minimum=2),
+        "corrections_total": extractor.corrections_total,
         "corrections": sorted(
             extractor.corrections,
-            key=lambda item: (
-                not item["hint"],
-                parse_time(item["timestamp"]) if item["timestamp"]
-                else datetime.min.replace(tzinfo=timezone.utc),
-            ),
+            key=lambda item: parse_time(item["timestamp"]) if item["timestamp"]
+            else datetime.min.replace(tzinfo=timezone.utc),
         ),
     }
     print(json.dumps(result, ensure_ascii=False, indent=1))
