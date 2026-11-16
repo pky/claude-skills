@@ -112,7 +112,7 @@ class RetroExtractTests(unittest.TestCase):
         result = self.extract()
         self.assertEqual(set(result), {
             "since", "root", "files", "subagent_files", "blocked", "failures",
-            "corrections",
+            "corrections_total", "corrections",
         })
         for key in ("blocked", "failures", "corrections"):
             self.assertEqual(result[key], [])
@@ -205,10 +205,10 @@ class RetroExtractTests(unittest.TestCase):
         self.repeated_rejections()
         self.assertEqual(self.extract()["blocked"][0]["sessions"], 2)
 
-    def test_blocked_keeps_at_most_three_examples(self):
+    def test_blocked_keeps_at_most_two_examples(self):
         self.repeated_rejections()
         examples = self.extract()["blocked"][0]["examples"]
-        self.assertEqual(len(examples), 3)
+        self.assertEqual(len(examples), 2)
         self.assertTrue(all(example["reason"].startswith("拒否 ") for example in examples))
 
     def test_blocked_separates_sources(self):
@@ -258,13 +258,24 @@ class RetroExtractTests(unittest.TestCase):
         self.assertEqual(json.loads(summary), {"query": "sample", "limit": 2})
         self.assertNotIn(" ", summary)
 
-    def test_blocked_input_is_truncated_to_two_hundred_characters(self):
+    def test_blocked_input_is_truncated_to_one_hundred_fifty_characters(self):
         self.write_log(self.rejected(tool_input={"command": "あ" * 205}))
-        self.assertEqual(self.extract()["blocked"][0]["examples"][0]["input"], "あ" * 200)
+        self.assertEqual(self.extract()["blocked"][0]["examples"][0]["input"], "あ" * 150)
 
-    def test_blocked_reason_is_truncated_to_three_hundred_characters(self):
+    def test_blocked_file_input_is_truncated_to_one_hundred_fifty_characters(self):
+        path = "/tmp/" + "あ" * 200
+        self.write_log(self.rejected(tool="Read", tool_input={"file_path": path}))
+        self.assertEqual(self.extract()["blocked"][0]["examples"][0]["input"], path[:150])
+
+    def test_blocked_json_input_is_truncated_to_one_hundred_fifty_characters(self):
+        tool_input = {"query": "あ" * 200}
+        self.write_log(self.rejected(tool="Search", tool_input=tool_input))
+        expected = json.dumps(tool_input, ensure_ascii=False, separators=(",", ":"))[:150]
+        self.assertEqual(self.extract()["blocked"][0]["examples"][0]["input"], expected)
+
+    def test_blocked_reason_is_truncated_to_two_hundred_characters(self):
         self.write_log(self.rejected("あ" * 305))
-        self.assertEqual(self.extract()["blocked"][0]["examples"][0]["reason"], "あ" * 300)
+        self.assertEqual(self.extract()["blocked"][0]["examples"][0]["reason"], "あ" * 200)
 
     def test_blocked_accepts_text_block_result_content(self):
         self.write_log(self.rejected([{"type": "text", "text": "拒否理由"}]))
@@ -306,9 +317,9 @@ class RetroExtractTests(unittest.TestCase):
         self.repeated_failures()
         self.assertEqual(self.extract()["failures"][0]["sessions"], 2)
 
-    def test_failures_keeps_at_most_three_examples(self):
+    def test_failures_keeps_at_most_two_examples(self):
         self.repeated_failures()
-        self.assertEqual(len(self.extract()["failures"][0]["examples"]), 3)
+        self.assertEqual(len(self.extract()["failures"][0]["examples"]), 2)
 
     def test_bash_command_key_strips_cd_and_keeps_subcommand(self):
         self.write_log(self.tool_result(tool_input={"command": "cd x && git push origin a"}) +
@@ -364,18 +375,37 @@ class RetroExtractTests(unittest.TestCase):
                 "input": "/tmp/a", "error": "失敗",
             })
 
-    def test_failure_input_is_truncated_to_two_hundred_characters(self):
+    def test_failure_input_is_truncated_to_one_hundred_fifty_characters(self):
         records = []
         for _ in range(2):
             records.extend(self.tool_result(tool_input={"command": "echo " + "あ" * 205}))
         self.write_log(records)
         for example in self.extract()["failures"][0]["examples"]:
-            self.assertEqual(example["input"], "echo " + "あ" * 195)
+            self.assertEqual(example["input"], "echo " + "あ" * 145)
 
-    def test_failure_error_is_truncated_to_three_hundred_characters(self):
+    def test_failure_file_input_is_truncated_to_one_hundred_fifty_characters(self):
+        path = "/tmp/" + "あ" * 200
+        records = []
+        for _ in range(2):
+            records.extend(self.tool_result(tool="Read", tool_input={"file_path": path}))
+        self.write_log(records)
+        for example in self.extract()["failures"][0]["examples"]:
+            self.assertEqual(example["input"], path[:150])
+
+    def test_failure_json_input_is_truncated_to_one_hundred_fifty_characters(self):
+        tool_input = {"query": "あ" * 200}
+        records = []
+        for _ in range(2):
+            records.extend(self.tool_result(tool="Search", tool_input=tool_input))
+        self.write_log(records)
+        expected = json.dumps(tool_input, ensure_ascii=False, separators=(",", ":"))[:150]
+        for example in self.extract()["failures"][0]["examples"]:
+            self.assertEqual(example["input"], expected)
+
+    def test_failure_error_is_truncated_to_two_hundred_characters(self):
         self.write_log(self.tool_result("あ" * 305) + self.tool_result("あ" * 305))
         for example in self.extract()["failures"][0]["examples"]:
-            self.assertEqual(example["error"], "あ" * 300)
+            self.assertEqual(example["error"], "あ" * 200)
 
     def test_failures_accept_text_block_result_content(self):
         content = [{"type": "text", "text": "失敗理由"}]
@@ -384,43 +414,43 @@ class RetroExtractTests(unittest.TestCase):
 
     def test_corrections_exclude_first_human_message_in_each_session(self):
         for session in ("session-a", "session-b"):
-            self.write_log([self.human("最初の依頼", session),
-                            self.human("続けてください", session)], session=session)
+            self.write_log([self.human("違う、最初の依頼", session),
+                            self.human("違う、続けてください", session)], session=session)
         corrections = self.extract()["corrections"]
         self.assertEqual(len(corrections), 2)
         self.assertEqual({item["session"] for item in corrections}, {"session-a", "session-b"})
-        self.assertTrue(all(item["text"] == "続けてください" for item in corrections))
+        self.assertTrue(all(item["text"] == "違う、続けてください" for item in corrections))
 
     def test_corrections_exclude_angle_bracket_prefix(self):
         self.write_log([self.human("最初の依頼"), self.human("<command>違う</command>"),
-                        self.human("続けてください")])
+                        self.human("違う、続けてください")])
         self.assertEqual([item["text"] for item in self.extract()["corrections"]],
-                         ["続けてください"])
+                         ["違う、続けてください"])
 
     def test_corrections_exclude_slash_prefix(self):
-        self.write_log([self.human("最初の依頼"), self.human("/retro"),
-                        self.human("続けてください")])
+        self.write_log([self.human("最初の依頼"), self.human("/retro 違う"),
+                        self.human("違う、続けてください")])
         self.assertEqual([item["text"] for item in self.extract()["corrections"]],
-                         ["続けてください"])
+                         ["違う、続けてください"])
 
     def test_corrections_exclude_meta_messages(self):
         self.write_log([self.human("最初の依頼"), self.human("違う", isMeta=True),
-                        self.human("続けてください", isMeta=False)])
+                        self.human("違う、続けてください", isMeta=False)])
         self.assertEqual([item["text"] for item in self.extract()["corrections"]],
-                         ["続けてください"])
+                         ["違う、続けてください"])
 
     def test_corrections_exclude_nonhuman_origin(self):
         self.write_log([self.human("最初の依頼"),
                         self.human("違う", origin={"kind": "agent"}),
-                        self.human("続けてください")])
+                        self.human("違う、続けてください")])
         self.assertEqual([item["text"] for item in self.extract()["corrections"]],
-                         ["続けてください"])
+                         ["違う、続けてください"])
 
     def test_corrections_require_human_origin(self):
         self.write_log([self.human("最初の依頼"), self.record("user", "違う"),
-                        self.human("続けてください")])
+                        self.human("違う、続けてください")])
         self.assertEqual([item["text"] for item in self.extract()["corrections"]],
-                         ["続けてください"])
+                         ["違う、続けてください"])
 
     def test_corrections_exclude_subagent_files(self):
         self.write_log([self.human("最初の依頼"), self.human("違う、戻して")], subagent=True)
@@ -443,48 +473,126 @@ class RetroExtractTests(unittest.TestCase):
                         self.human("違う", "session-b")], session="session-b")
         self.assertEqual(self.extract()["corrections"][0]["prev_assistant"], "")
 
-    def test_corrections_hints_match_all_specified_phrases(self):
+    def test_corrections_match_original_specified_phrases(self):
         phrases = ["違う", "ちがう", "じゃなく", "ではなく", "しないで", "やめて", "なんで",
                    "なぜ", "言った", "勝手", "戻して", "聞いてない", "ダメ", "だめ"]
         self.write_log([self.human("最初の依頼")] +
-                       [self.human(f"これは{phrase}という発言です") for phrase in phrases] +
-                       [self.human("続けてください")])
+                       [self.human(f"これは{phrase}という発言です") for phrase in phrases])
         corrections = self.extract()["corrections"]
-        self.assertEqual(len(corrections), len(phrases) + 1)
-        for item in corrections:
-            self.assertIs(item["hint"], item["text"] != "続けてください")
+        self.assertEqual([item["text"] for item in corrections],
+                         [f"これは{phrase}という発言です" for phrase in phrases])
 
-    def test_corrections_sort_hint_first_then_timestamp_ascending(self):
+    def test_corrections_match_itte(self):
+        self.write_log([self.human("最初の依頼"), self.human("言って")])
+        self.assertEqual([item["text"] for item in self.extract()["corrections"]], ["言って"])
+
+    def test_corrections_match_daro(self):
+        self.write_log([self.human("最初の依頼"), self.human("だろ")])
+        self.assertEqual([item["text"] for item in self.extract()["corrections"]], ["だろ"])
+
+    def test_corrections_match_dakara(self):
+        self.write_log([self.human("最初の依頼"), self.human("だから")])
+        self.assertEqual([item["text"] for item in self.extract()["corrections"]], ["だから"])
+
+    def test_corrections_match_wakaranai(self):
+        self.write_log([self.human("最初の依頼"), self.human("わからない")])
+        self.assertEqual([item["text"] for item in self.extract()["corrections"]], ["わからない"])
+
+    def test_corrections_match_wakarinikui(self):
+        self.write_log([self.human("最初の依頼"), self.human("わかりにくい")])
+        self.assertEqual([item["text"] for item in self.extract()["corrections"]], ["わかりにくい"])
+
+    def test_corrections_match_imi(self):
+        self.write_log([self.human("最初の依頼"), self.human("意味")])
+        self.assertEqual([item["text"] for item in self.extract()["corrections"]], ["意味"])
+
+    def test_corrections_match_iya_with_comma(self):
+        self.write_log([self.human("最初の依頼"), self.human("いや、続けて")])
+        self.assertEqual([item["text"] for item in self.extract()["corrections"]], ["いや、続けて"])
+
+    def test_corrections_match_iya_with_space(self):
+        self.write_log([self.human("最初の依頼"), self.human("いや 続けて")])
+        self.assertEqual([item["text"] for item in self.extract()["corrections"]], ["いや 続けて"])
+
+    def test_corrections_match_toiuka(self):
+        self.write_log([self.human("最初の依頼"), self.human("というか")])
+        self.assertEqual([item["text"] for item in self.extract()["corrections"]], ["というか"])
+
+    def test_corrections_match_ndaga(self):
+        self.write_log([self.human("最初の依頼"), self.human("んだが")])
+        self.assertEqual([item["text"] for item in self.extract()["corrections"]], ["んだが"])
+
+    def test_corrections_match_ndayo(self):
+        self.write_log([self.human("最初の依頼"), self.human("んだよ")])
+        self.assertEqual([item["text"] for item in self.extract()["corrections"]], ["んだよ"])
+
+    def test_corrections_do_not_match_tsukaiyasui(self):
+        self.write_log([self.human("最初の依頼"), self.human("使いやすい")])
+        self.assertEqual(self.extract()["corrections"], [])
+
+    def test_corrections_exclude_messages_without_keywords(self):
+        self.write_log([self.human("最初の依頼"), self.human("続けてください")])
+        self.assertEqual(self.extract()["corrections"], [])
+
+    def test_corrections_have_no_hint_field(self):
+        self.write_log([self.human("最初の依頼"), self.human("違う")])
+        self.assertNotIn("hint", self.extract()["corrections"][0])
+
+    def test_corrections_total_is_zero_without_messages(self):
+        self.assertEqual(self.extract().get("corrections_total"), 0)
+
+    def test_corrections_total_includes_messages_without_keywords(self):
+        self.write_log([self.human("最初の依頼"), self.human("違う"),
+                        self.human("続けてください")])
+        self.assertEqual(self.extract().get("corrections_total"), 2)
+
+    def test_corrections_total_excludes_ineligible_messages(self):
+        self.write_log([
+            self.human("違う、最初の依頼"),
+            self.human("<command>違う</command>"),
+            self.human("/retro 違う"),
+            self.human("違う", isMeta=True),
+            self.human("違う", origin={"kind": "agent"}),
+            self.record("user", "違う"),
+            self.human("違う", timestamp=OLD),
+            self.assistant("違う"),
+            self.human("続けてください"),
+        ] + self.tool_result("違う"))
+        self.write_log([self.human("最初の依頼", "session-b"),
+                        self.human("違う", "session-b")], session="session-b", subagent=True)
+        self.assertEqual(self.extract().get("corrections_total"), 1)
+
+    def test_corrections_sort_by_timestamp_ascending(self):
         self.write_log([
             self.human("最初の依頼"),
-            self.human("続けて後", timestamp="2026-11-15T13:00:00Z"),
+            self.human("言って、後", timestamp="2026-11-15T13:00:00Z"),
             self.human("違う、後", timestamp="2026-11-15T14:00:00Z"),
             self.human("違う、先", timestamp="2026-11-15T11:00:00Z"),
-            self.human("続けて先", timestamp="2026-11-15T10:00:00Z"),
+            self.human("言って、先", timestamp="2026-11-15T10:00:00Z"),
         ])
         self.assertEqual([item["text"] for item in self.extract()["corrections"]],
-                         ["違う、先", "違う、後", "続けて先", "続けて後"])
+                         ["言って、先", "違う、先", "言って、後", "違う、後"])
 
     def test_corrections_include_project_session_timestamp_and_text(self):
         self.write_log([self.human("最初の依頼", "actual-session"),
                         self.assistant("説明", "actual-session"),
-                        self.human("続けてください", "actual-session")],
+                        self.human("違う、続けてください", "actual-session")],
                        project="project-b", session="filename-session")
         self.assertEqual(self.extract()["corrections"], [{
             "project": "project-b", "session": "actual-session", "timestamp": RECENT,
-            "text": "続けてください", "prev_assistant": "説明", "hint": False,
+            "text": "違う、続けてください", "prev_assistant": "説明",
         }])
 
     def test_corrections_text_is_truncated_to_three_hundred_characters(self):
-        self.write_log([self.human("最初の依頼"), self.human("あ" * 305)])
-        self.assertEqual(self.extract()["corrections"][0]["text"], "あ" * 300)
+        self.write_log([self.human("最初の依頼"), self.human("違う" + "あ" * 305)])
+        self.assertEqual(self.extract()["corrections"][0]["text"], "違う" + "あ" * 298)
 
     def test_corrections_accept_all_documented_prompt_sources(self):
         sources = ("typed", "queued", "suggestion_accepted")
         self.write_log([self.human("最初の依頼")] +
-                       [self.human(source, promptSource=source) for source in sources])
+                       [self.human("違う、" + source, promptSource=source) for source in sources])
         self.assertEqual({item["text"] for item in self.extract()["corrections"]},
-                         set(sources))
+                         {"違う、" + source for source in sources})
 
     def test_old_blocked_records_are_excluded_by_timestamp(self):
         self.write_log(self.rejected("古い拒否", timestamp=OLD) + self.rejected("新しい拒否"))
