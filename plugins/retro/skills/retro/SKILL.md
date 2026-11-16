@@ -10,7 +10,7 @@ description: Claude Code の会話記録（jsonl）を読み、止められた�
 ## 1. 抽出
 
 - この skill の Base directory にある scripts/retro_extract.py を `python3 -I <Base directory>/scripts/retro_extract.py --days <日数>` で実行し、出力をセッションの scratchpad に retro.json として保存する
-- 終了コード 2 は記録のディレクトリが読めないとき。標準エラーの理由をそのまま報告して終える
+- 終了コードが 0 でなければ、標準エラーをそのまま報告して終える
 
 ## 2. 照合
 
@@ -23,7 +23,7 @@ retro.json の3つを読む。
 訂正だと判断したものは、既存ルールと照らし合わせる。照合先は次のとおり。
 
 - ~/.claude/CLAUDE.md
-- 発言のあったセッションの cwd にある AGENTS.md と CLAUDE.md
+- 発言の cwd にある AGENTS.md と CLAUDE.md（cwd は corrections の各項目にある）
 - そのプロジェクトのメモリ（`<記録のディレクトリ>/<project>/memory/`）
 
 照合の結果を、次の3つに分ける。
@@ -47,7 +47,7 @@ retro.json の3つを読む。
 
 - 2回以上起きたものは、指示を足すより hook や検査スクリプトで止める案にする
 - 許可の追加で済むものは、自分で案を書かず `/fewer-permission-prompts` を勧める
-- 全文（各グループの例、照合したルールの場所、判断の理由）は ~/Documents/retro/YYYY-MM-DD.md に保存し、報告の最後にパスを書く
+- 全文（各グループの例、照合したルールの場所、判断の理由）は ~/Documents/retro/YYYY-MM-DD-HHMM.md に保存し、報告の最後にパスを書く
 
 ## やらないこと
 
