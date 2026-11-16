@@ -29,6 +29,11 @@
       "name": "clip",
       "source": "./plugins/clip",
       "description": "記事や X の投稿を必要な部分だけ読み、自分の環境に合うかを照合する（clip）"
+    },
+    {
+      "name": "retro",
+      "source": "./plugins/retro",
+      "description": "会話記録から止められた操作、繰り返す失敗、守られなかった指示を集めて直す先を提案する（retro）"
     }
   ]
 }
