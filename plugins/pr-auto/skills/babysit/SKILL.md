@@ -36,10 +36,12 @@ owner と repo の名前（GraphQL に渡す値。出力を見て、次のコマ
 gh repo view --json owner,name
 ```
 
-未解決スレッドの一覧。`<owner>` と `<repo>` には上の値を書く。整形は jq を使わず、返ってきた JSON の `isResolved` が false のものを読む:
+未解決スレッドの一覧。`<owner>` と `<repo>` には上の値を、`<skill_dir>` にはこのスキルのディレクトリの絶対パスを書く。クエリは同じディレクトリの review-threads.graphql にある。クエリをコマンド行に直接書くと許可の確認で拒否されるので、必ずファイルで渡す。整形は jq を使わず、返ってきた JSON の `isResolved` が false のものを読む:
 
 ```bash
-gh api graphql -f query='query($owner:String!,$repo:String!,$number:Int!,$cursor:String){repository(owner:$owner,name:$repo){pullRequest(number:$number){reviewThreads(first:100,after:$cursor){pageInfo{hasNextPage endCursor}nodes{id,isResolved,isOutdated,path,line,comments(last:1){nodes{author{login},body,createdAt,url}}}}}}}' -f owner=<owner> -f repo=<repo> -F number=<number>
+gh api graphql -F query=@<skill_dir>/review-threads.graphql -f owner=<owner> -f repo=<repo> -F number=<number>
 ```
 
 `hasNextPage` が true のときは、同じコマンドに `-f cursor=<endCursor の値>` を足して、次のページを1回ずつ取る。シェルの変数やループで回さない。
+
+PR の本文とコメントは、scratchpad のファイルに書いて `--body-file` で渡す。スレッドへの返信は gh api で送るので、本文ファイルを `-F body=@<ファイル>` で渡す（gh api には `--body-file` が無い）。gh のコマンド行にバッククォートを入れると、sandbox の除外設定 `gh *` が効かずに sandbox の中で動き、GitHub への通信が拒否される。
