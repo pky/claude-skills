@@ -353,6 +353,36 @@ class RetroExtractTests(unittest.TestCase):
         self.write_log(self.tool_result(text) + self.tool_result(text))
         self.assertEqual(self.extract()["failures"][0]["error_head"], "あ" * 80)
 
+    def test_failures_head_skips_exit_code_line_and_normalizes_error_digits(self):
+        text = "Exit code 1\nerror: foo 12"
+        self.write_log(self.tool_result(text) + self.tool_result(text))
+        self.assertEqual(self.extract()["failures"][0]["error_head"], "error: foo ##")
+
+    def test_failures_separate_errors_after_exit_code_lines(self):
+        records = []
+        for text in ("Exit code 1\nerror: foo", "Exit code 2\nerror: bar"):
+            for _ in range(2):
+                records.extend(self.tool_result(text))
+        self.write_log(records)
+        self.assertEqual([(group["error_head"], group["count"])
+                          for group in self.extract()["failures"]],
+                         [("error: bar", 2), ("error: foo", 2)])
+
+    def test_failures_head_falls_back_when_only_exit_code_line_remains(self):
+        text = "Exit code 1"
+        self.write_log(self.tool_result(text) + self.tool_result(text))
+        self.assertEqual(self.extract()["failures"][0]["error_head"], "Exit code #")
+
+    def test_failures_head_skips_padded_exit_code_line_and_blank_line(self):
+        text = "  Exit code 128  \n\nfatal: x"
+        self.write_log(self.tool_result(text) + self.tool_result(text))
+        self.assertEqual(self.extract()["failures"][0]["error_head"], "fatal: x")
+
+    def test_failures_head_keeps_error_before_exit_code_line(self):
+        text = "error: foo\nExit code 1"
+        self.write_log(self.tool_result(text) + self.tool_result(text))
+        self.assertEqual(self.extract()["failures"][0]["error_head"], "error: foo")
+
     def test_failures_sorts_by_count_descending_then_head_ascending(self):
         records = []
         for error, count in (("い", 2), ("う", 3), ("あ", 2)):
