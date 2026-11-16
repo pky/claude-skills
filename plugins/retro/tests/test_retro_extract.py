@@ -503,6 +503,27 @@ class RetroExtractTests(unittest.TestCase):
                         self.human("違う", "session-b")], session="session-b")
         self.assertEqual(self.extract()["corrections"][0]["prev_assistant"], "")
 
+    def test_corrections_prev_assistant_survives_tool_use_only_record(self):
+        tool_call = self.record("assistant", [{
+            "type": "tool_use", "id": "tool-1", "name": "Bash",
+            "input": {"command": "pwd"},
+        }])
+        self.write_log([self.human("最初の依頼"), self.assistant("説明文"),
+                        tool_call, self.human("違う")])
+        self.assertEqual(self.extract()["corrections"][0]["prev_assistant"], "説明文")
+
+    def test_corrections_prev_assistant_uses_text_outside_time_range(self):
+        self.write_log([self.assistant("期間外の説明文", timestamp=OLD),
+                        self.human("最初の依頼", timestamp=OLD),
+                        self.human("違う", timestamp=RECENT)])
+        self.assertEqual(self.extract()["corrections"][0]["prev_assistant"],
+                         "期間外の説明文")
+
+    def test_corrections_prev_assistant_uses_last_nonempty_text(self):
+        self.write_log([self.human("最初の依頼"), self.assistant("説明文A"),
+                        self.assistant("説明文B"), self.human("違う")])
+        self.assertEqual(self.extract()["corrections"][0]["prev_assistant"], "説明文B")
+
     def test_corrections_match_original_specified_phrases(self):
         phrases = ["違う", "ちがう", "じゃなく", "ではなく", "しないで", "やめて", "なんで",
                    "なぜ", "言った", "勝手", "戻して", "聞いてない", "ダメ", "だめ"]
