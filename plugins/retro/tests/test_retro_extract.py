@@ -609,7 +609,7 @@ class RetroExtractTests(unittest.TestCase):
                         self.human("違う、続けてください", "actual-session")],
                        project="project-b", session="filename-session")
         self.assertEqual(self.extract()["corrections"], [{
-            "project": "project-b", "session": "actual-session", "timestamp": RECENT,
+            "project": "project-b", "session": "actual-session", "cwd": "", "timestamp": RECENT,
             "text": "違う、続けてください", "prev_assistant": "説明",
         }])
 
@@ -687,6 +687,117 @@ class RetroExtractTests(unittest.TestCase):
         result = self.extract()
         self.assertEqual(result["blocked"][0]["reason_head"], "有効な拒否")
         self.assertEqual(result["failures"][0]["count"], 2)
+
+    def test_corrections_include_first_recent_message_after_old_first_message(self):
+        self.write_log([self.human("最初の依頼", timestamp=OLD),
+                        self.human("違う", timestamp=RECENT)])
+        result = self.extract()
+        self.assertEqual([item["text"] for item in result["corrections"]], ["違う"])
+        self.assertEqual(result["corrections_total"], 1)
+
+    def test_corrections_cwd_comes_from_each_message_record(self):
+        self.write_log([self.human("最初の依頼", cwd="/tmp/initial-project"),
+                        self.human("違う", cwd="/tmp/corrected-project")])
+        corrections = self.extract()["corrections"]
+        self.assertEqual(len(corrections), 1)
+        self.assertEqual(corrections[0].get("cwd"), "/tmp/corrected-project")
+
+    def test_corrections_cwd_defaults_to_empty_string_when_missing(self):
+        self.write_log([self.human("最初の依頼", cwd="/tmp/initial-project"),
+                        self.human("違う")])
+        corrections = self.extract()["corrections"]
+        self.assertEqual(len(corrections), 1)
+        self.assertEqual(corrections[0].get("cwd"), "")
+
+    def write_escaped_log(self, records):
+        path = self.write_log([])
+        mtime = path.stat().st_mtime
+        path.write_text("".join(json.dumps(record) + "\n" for record in records),
+                        encoding="utf-8")
+        os.utime(path, (mtime, mtime))
+
+    def test_failure_with_unpaired_surrogate_outputs_valid_json(self):
+        text = "失敗しました\ud83d"
+        self.write_escaped_log(self.tool_result(text) + self.tool_result(text))
+        result = self.run_cli()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        output = json.loads(result.stdout)
+        self.assertEqual(len(output["failures"]), 1)
+        self.assertEqual(output["failures"][0]["count"], 2)
+        self.assertEqual(output["failures"][0]["examples"][0]["error"], text)
+
+    def test_correction_with_unpaired_surrogate_outputs_valid_json(self):
+        text = "違う\ud83d"
+        self.write_escaped_log([self.human("最初の依頼"), self.human(text)])
+        result = self.run_cli()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        output = json.loads(result.stdout)
+        self.assertEqual([item["text"] for item in output["corrections"]], [text])
+
+    def test_failures_stringify_list_tool_name(self):
+        tool = ["Read", "Search"]
+        self.write_log(self.tool_result(tool=tool) + self.tool_result(tool=tool))
+        result = self.run_cli()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        failures = json.loads(result.stdout)["failures"]
+        self.assertEqual([(group["tool"], group["command_key"], group["count"])
+                          for group in failures], [(str(tool), str(tool), 2)])
+
+    def test_failures_stringify_dict_tool_name(self):
+        tool = {"name": "Read"}
+        self.write_log(self.tool_result(tool=tool) + self.tool_result(tool=tool))
+        result = self.run_cli()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        failures = json.loads(result.stdout)["failures"]
+        self.assertEqual([(group["tool"], group["command_key"], group["count"])
+                          for group in failures], [(str(tool), str(tool), 2)])
+
+    def test_numeric_timestamp_is_not_dropped(self):
+        self.write_log(self.rejected("数値の時刻", timestamp=1))
+        blocked = self.extract()["blocked"]
+        self.assertEqual([(group["reason_head"], group["count"]) for group in blocked],
+                         [("数値の時刻", 1)])
+
+    def test_non_iso_timestamp_is_not_dropped(self):
+        self.write_log(self.rejected("読めない時刻", timestamp="2026/11/15 12:00"))
+        blocked = self.extract()["blocked"]
+        self.assertEqual([(group["reason_head"], group["count"]) for group in blocked],
+                         [("読めない時刻", 1)])
+
+    def run_default_root_cli(self):
+        env = os.environ.copy()
+        env["HOME"] = str(self.root)
+        return subprocess.run(
+            ["python3", str(SCRIPT), "--now", NOW, "--days", "7"],
+            env=env, capture_output=True, text=True, encoding="utf-8", check=False,
+        )
+
+    def test_default_root_selects_claude_projects_when_only_it_exists(self):
+        root = self.root / ".claude/projects"
+        root.mkdir(parents=True)
+        result = self.run_default_root_cli()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["root"], str(root))
+
+    def test_default_root_selects_mac_home_projects_when_only_it_exists(self):
+        root = self.root / "mac_home/.claude/projects"
+        root.mkdir(parents=True)
+        result = self.run_default_root_cli()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["root"], str(root))
+
+    def test_default_root_prefers_claude_projects_when_both_exist(self):
+        root = self.root / ".claude/projects"
+        root.mkdir(parents=True)
+        (self.root / "mac_home/.claude/projects").mkdir(parents=True)
+        result = self.run_default_root_cli()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["root"], str(root))
+
+    def test_default_root_exits_with_code_two_when_neither_exists(self):
+        result = self.run_default_root_cli()
+        self.assertEqual(result.returncode, 2)
+        self.assertTrue(result.stderr.strip())
 
 
 if __name__ == "__main__":
