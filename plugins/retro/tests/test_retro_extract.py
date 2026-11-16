@@ -56,6 +56,11 @@ class RetroExtractTests(unittest.TestCase):
             result["sandboxViolations"] = violations
         return [call, result]
 
+    def tool_result_at_times(self, *, call_timestamp, result_timestamp, **kwargs):
+        call, result = self.tool_result(timestamp=result_timestamp, **kwargs)
+        call["timestamp"] = call_timestamp
+        return [call, result]
+
     def rejected(self, text="操作が拒否されました", *, source="hook", **kwargs):
         permission = {"decision": "reject", "source": source}
         permission.update(kwargs.pop("permission_fields", {}))
@@ -656,6 +661,59 @@ class RetroExtractTests(unittest.TestCase):
                        self.tool_result("新しい失敗") + self.tool_result("新しい失敗"))
         self.assertEqual([group["error_head"] for group in self.extract()["failures"]],
                          ["新しい失敗"])
+
+    def test_recent_failures_use_tool_call_outside_time_range(self):
+        records = []
+        for _ in range(2):
+            records.extend(self.tool_result_at_times(
+                call_timestamp=OLD, result_timestamp=RECENT,
+                tool="Bash", tool_input={"command": "git push origin a"},
+            ))
+        self.write_log(records)
+        failures = self.extract()["failures"]
+        self.assertEqual(len(failures), 1)
+        group = failures[0]
+        self.assertEqual((group["tool"], group["command_key"], group["count"]),
+                         ("Bash", "git push", 2))
+        self.assertEqual([example["input"] for example in group["examples"]],
+                         ["git push origin a", "git push origin a"])
+
+    def test_old_tool_calls_and_failure_results_are_not_counted(self):
+        records = []
+        for _ in range(2):
+            records.extend(self.tool_result_at_times(
+                call_timestamp=OLD, result_timestamp=OLD,
+                tool="Bash", tool_input={"command": "git push origin a"},
+            ))
+        self.write_log(records)
+        result = self.extract()
+        self.assertEqual(result["failures"], [])
+        self.assertEqual(result["blocked"], [])
+
+    def test_recent_failures_separate_commands_from_old_tool_calls(self):
+        records = []
+        for command in ("ls x", "cat y"):
+            records.extend(self.tool_result_at_times(
+                text="Exit code 1\nfailed",
+                call_timestamp=OLD, result_timestamp=RECENT,
+                tool="Bash", tool_input={"command": command},
+            ))
+        self.write_log(records)
+        self.assertEqual(self.extract()["failures"], [])
+
+    def test_recent_hook_rejection_uses_tool_call_outside_time_range(self):
+        self.write_log(self.tool_result_at_times(
+            call_timestamp=OLD, result_timestamp=RECENT,
+            tool="Bash", tool_input={"command": "git push origin a"},
+            permission={"decision": "reject", "source": "hook"},
+        ))
+        blocked = self.extract()["blocked"]
+        self.assertEqual(len(blocked), 1)
+        group = blocked[0]
+        self.assertEqual((group["source"], group["tool"], group["count"]),
+                         ("hook", "Bash", 1))
+        self.assertEqual([example["input"] for example in group["examples"]],
+                         ["git push origin a"])
 
     def test_old_corrections_are_excluded_by_timestamp(self):
         self.write_log([self.human("最初の依頼"),
