@@ -44,4 +44,4 @@ gh api graphql -F query=@<skill_dir>/review-threads.graphql -f owner=<owner> -f 
 
 `hasNextPage` が true のときは、同じコマンドに `-f cursor=<endCursor の値>` を足して、次のページを1回ずつ取る。シェルの変数やループで回さない。
 
-PR の本文、コメント、スレッドへの返信は、scratchpad のファイルに書いて `--body-file` で渡す。gh のコマンド行にバッククォートを入れると、sandbox の除外設定 `gh *` が効かずに sandbox の中で動き、GitHub への通信が拒否される。
+PR の本文とコメントは、scratchpad のファイルに書いて `--body-file` で渡す。スレッドへの返信は gh api で送るので、本文ファイルを `-F body=@<ファイル>` で渡す（gh api には `--body-file` が無い）。gh のコマンド行にバッククォートを入れると、sandbox の除外設定 `gh *` が効かずに sandbox の中で動き、GitHub への通信が拒否される。
