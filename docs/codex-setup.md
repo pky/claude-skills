@@ -56,7 +56,7 @@ codex plugin list --marketplace pky-codex-skills --available --json
 
 core・pr-auto・worktrunk・herdrの4件が利用可能で有効になっていることを確認します。登録済みsourceが同じでもrefが異なる場合は、その差とCLIが提供する変更方法を確認し、既存プラグインを保全して指定refに合わせます。導入に失敗した場合は今回の変更だけを戻し、旧source・refと既存プラグインの復旧を確認します。
 
-iOS実機確認は任意です。既存の `ios-device-check` があれば二重導入しません。必要かつ未導入の場合だけ `codex plugin add ios@pky-codex-skills` を実行します。実機操作にはXcode・WDA・mobile-mcpなどが別途必要です。Worktrunk本体や `gh` も必要時に許可された方法で用意し、既存の導入を保持します。
+Worktrunk本体や `gh` も必要時に許可された方法で用意し、既存の導入を保持します。
 
 参照: [marketplaceのCLI登録](https://developers.openai.com/plugins/build/plugins#add-a-marketplace-from-the-cli)。
 
