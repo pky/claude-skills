@@ -28,7 +28,7 @@ sh ~/works/mobile-mcp-tools/start-wda.sh <UDID>     # 別端末
 
 3. mobile_* ツールで操作する
    - mobile_list_available_devices で端末 ID を取る
-   - mobile_launch_app に Bundle ID を渡して起動する（PFile は jp.pky.pfile）
+   - mobile_launch_app に Bundle ID を渡して起動する。Bundle ID は対象リポジトリの CLAUDE.md や AGENTS.md に書かれていればそれを使い、無ければ `xcodebuild -showBuildSettings` の PRODUCT_BUNDLE_IDENTIFIER で調べる
    - mobile_list_elements_on_screen で要素と座標を取り、mobile_click_on_screen_at_coordinates でタップする
    - mobile_take_screenshot で画面を確認する
    - mobile_get_foreground_app は legacy モード非対応。使わない
