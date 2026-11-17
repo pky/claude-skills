@@ -9,14 +9,18 @@ def at_or_under(path, directory):
     return path == directory or path.startswith(directory + "/")
 
 
-def read_uses_link(value, home, source, cwd):
+def normalize_read_path(value, home, cwd):
     for prefix in ("~", "$HOME", "${HOME}"):
         if value == prefix or value.startswith(prefix + "/"):
             value = home + value[len(prefix):]
             break
     if not os.path.isabs(value) and isinstance(cwd, str):
         value = os.path.join(cwd, value)
-    path = os.path.normpath(value)
+    return os.path.normpath(value)
+
+
+def read_uses_link(value, home, source, cwd):
+    path = normalize_read_path(value, home, cwd)
     source = os.path.normpath(source)
     return (at_or_under(path, source)
             and not at_or_under(path, os.path.join(source, "projects")))
@@ -78,7 +82,12 @@ def main():
             if event["tool_name"] == "Bash":
                 blocked = bash_uses_link(value, home, source, cwd)
             else:
-                blocked = read_uses_link(value, home, source, cwd)
+                base = cwd
+                if event["tool_name"] == "Glob" and field == "pattern":
+                    glob_path = tool_input.get("path")
+                    if isinstance(glob_path, str):
+                        base = normalize_read_path(glob_path, home, cwd)
+                blocked = read_uses_link(value, home, source, base)
             if not blocked:
                 continue
             reason = (
