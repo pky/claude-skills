@@ -1,0 +1,132 @@
+#!/bin/bash
+# シミュレータの貸し出し台帳。登録簿に載っている台だけを貸す。台は作らない・複製しない・落とさない。
+# 使い方:
+#   sim-lease init <一覧ファイル>          xcrun simctl list devices available の出力から iPhone を登録簿に書き出す（登録簿が無いときだけ）
+#   sim-lease acquire <ラベル> [待ち秒数]   空き台の UDID を標準出力に出す。無ければ待ち、時間切れで exit 1
+#   sim-lease release <UDID>               返却
+#   sim-lease status                       全台の貸出状況
+# 登録簿: SIM_LEASE_POOL（既定 ~/.config/sim-lease/pool.txt）。1行に「UDID 名前」。UDID は Mac ごとに違うので持ち回らない
+# このスクリプトは simctl を呼ばない（サンドボックス内からは CoreSimulatorService に届かないため）。起動や一覧の取得は呼び出し側が行う
+# ロック: SIM_LEASE_LOCKS（既定 /tmp/sim-lease-<uid>/locks）の下に UDID ごとのディレクトリを mkdir で作る
+# bash の呼び出しごとにプロセスが終わるため、貸出は期限（SIM_LEASE_TTL、既定 7200 秒）で回収する
+set -u
+
+POOL="${SIM_LEASE_POOL:-$HOME/.config/sim-lease/pool.txt}"
+LOCKS="${SIM_LEASE_LOCKS:-/tmp/sim-lease-$(id -u)/locks}"
+TTL="${SIM_LEASE_TTL:-7200}"
+
+now() { date +%s; }
+
+need_pool() {
+  if [ ! -f "$POOL" ]; then
+    echo "登録簿が無い: ${POOL} sim-lease init で作る" >&2
+    exit 2
+  fi
+}
+
+in_pool() {
+  grep -q "^$1 " "$POOL"
+}
+
+reclaim_stale() {
+  local d t
+  for d in "$LOCKS"/*/; do
+    [ -d "$d" ] || continue
+    t=$(cat "$d/time" 2>/dev/null || echo 0)
+    if [ $(( $(now) - t )) -gt "$TTL" ]; then
+      rm -rf "$d"
+    fi
+  done
+}
+
+cmd_init() {
+  local list="${1:-}"
+  if [ -z "$list" ] || [ ! -f "$list" ]; then
+    echo "使い方: sim-lease init <xcrun simctl list devices available の出力ファイル>" >&2
+    exit 2
+  fi
+  if [ -e "$POOL" ]; then
+    echo "登録簿が既にある: ${POOL} 直すときは直接編集するか、消してから再実行する" >&2
+    exit 1
+  fi
+  mkdir -p "$(dirname "$POOL")"
+  awk '
+    /^-- iOS /      { ver = $3; next }
+    /^ +iPhone /    {
+      if (match($0, /\([0-9A-Fa-f]+-[0-9A-Fa-f-]+\)/)) {
+        udid = substr($0, RSTART + 1, RLENGTH - 2)
+        name = substr($0, 1, RSTART - 1)
+        gsub(/^ +| +$/, "", name)
+        gsub(/[ ()]+/, "-", name)
+        sub(/-$/, "", name)
+        print udid, name "-iOS" ver
+      }
+    }' "$list" > "$POOL"
+  if [ ! -s "$POOL" ]; then
+    rm -f "$POOL"
+    echo "利用できる iPhone のシミュレータが見つからない" >&2
+    exit 1
+  fi
+  echo "登録した台 ($POOL):"
+  cat "$POOL"
+}
+
+cmd_acquire() {
+  need_pool
+  local label="${1:-unknown}"
+  local wait="${2:-120}"
+  local deadline=$(( $(now) + wait ))
+  local udid name
+  mkdir -p "$LOCKS"
+  while true; do
+    reclaim_stale
+    while read -r udid name; do
+      case "$udid" in ''|\#*) continue ;; esac
+      if mkdir "$LOCKS/$udid" 2>/dev/null; then
+        echo "$label" > "$LOCKS/$udid/owner"
+        now > "$LOCKS/$udid/time"
+        echo "$udid"
+        exit 0
+      fi
+    done < "$POOL"
+    if [ "$(now)" -ge "$deadline" ]; then
+      echo "空いているシミュレータが無い (待ち ${wait} 秒)" >&2
+      exit 1
+    fi
+    sleep 5
+  done
+}
+
+cmd_release() {
+  need_pool
+  local udid="${1:-}"
+  if [ -z "$udid" ] || ! in_pool "$udid"; then
+    echo "登録簿に無い UDID: $udid" >&2
+    exit 2
+  fi
+  rm -rf "$LOCKS/$udid"
+  echo "released $udid"
+}
+
+cmd_status() {
+  need_pool
+  local udid name owner t
+  while read -r udid name; do
+    case "$udid" in ''|\#*) continue ;; esac
+    if [ -d "$LOCKS/$udid" ]; then
+      owner=$(cat "$LOCKS/$udid/owner" 2>/dev/null || echo "?")
+      t=$(cat "$LOCKS/$udid/time" 2>/dev/null || echo 0)
+      echo "$udid $name 使用中 owner=$owner 経過=$(( $(now) - t ))秒"
+    else
+      echo "$udid $name 空き"
+    fi
+  done < "$POOL"
+}
+
+case "${1:-}" in
+  init) shift; cmd_init "$@" ;;
+  acquire) shift; cmd_acquire "$@" ;;
+  release) shift; cmd_release "$@" ;;
+  status) cmd_status ;;
+  *) echo "使い方: sim-lease init <一覧ファイル> | acquire <ラベル> [待ち秒数] | release <UDID> | status" >&2; exit 2 ;;
+esac

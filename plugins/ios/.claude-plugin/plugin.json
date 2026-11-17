@@ -1,0 +1,7 @@
+{
+  "name": "ios",
+  "description": "iOS シミュレータを他の開発とぶつからないように借りて動作確認する（ios-sim-check）",
+  "author": {
+    "name": "pky"
+  }
+}

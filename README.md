@@ -16,6 +16,7 @@ pky の自作スキルを Claude Code と Codex のプラグインとして配�
 - clip: 記事や X の投稿を必要な部分だけ読み、自分の環境に合うかを照合する（clip）
 - retro: 会話記録から止められた操作、繰り返す失敗、守られなかった指示を集めて直す先を提案する（retro）
 - guard: ~/.claude がリンクのとき、リンクのパスを使う Read、Grep、Glob、Bash を止めて実体のパスを案内する。毎回の発言時に、返答を短くする決まりを渡す
+- ios: iOS シミュレータを他の開発とぶつからないように借りて動作確認する（ios-sim-check）。初回は skill が `sim-lease init` で、その Mac のシミュレータを登録簿（~/.config/sim-lease/pool.txt）に書き出す
 
 PR を自動で進めたくない環境では pr-auto を入れない。
 
