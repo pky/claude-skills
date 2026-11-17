@@ -291,6 +291,35 @@ class ClaudePathGuardTests(unittest.TestCase):
     def test_glob_relative_pattern_without_path_is_allowed(self):
         self.assertEqual(self.run_guard("Glob", {"pattern": "**/*.md"}), "")
 
+    def test_glob_relative_pattern_with_absolute_repo_path_from_home_is_allowed(self):
+        self.assertEqual(self.run_guard_with_cwd(
+            "Glob", {"path": str(self.home / "repo"),
+                     "pattern": ".claude/**/*.json"},
+            cwd=str(self.home)), "")
+
+    def test_glob_relative_pattern_with_relative_repo_path_from_home_is_allowed(self):
+        self.assertEqual(self.run_guard_with_cwd(
+            "Glob", {"path": "repo", "pattern": ".claude/**/*.json"},
+            cwd=str(self.home)), "")
+
+    def test_glob_relative_pattern_without_path_from_home_is_denied(self):
+        self.denied_with_cwd(
+            "Glob", "pattern", ".claude/**/*.json", cwd=str(self.home))
+
+    def test_glob_relative_pattern_with_tilde_path_from_repo_is_denied(self):
+        output = self.run_guard_with_cwd(
+            "Glob", {"path": "~", "pattern": ".claude/**/*.json"},
+            cwd=str(self.home / "repo"))
+        self.assertNotEqual(output, "", "拒否を示す JSON が出力されていない")
+        self.assertEqual(json.loads(output)["hookSpecificOutput"]["permissionDecision"],
+                         "deny")
+
+    def test_glob_relative_projects_pattern_with_home_path_from_repo_is_allowed(self):
+        self.assertEqual(self.run_guard_with_cwd(
+            "Glob", {"path": str(self.home),
+                     "pattern": ".claude/projects/**/*.md"},
+            cwd=str(self.home / "repo")), "")
+
     def test_glob_tilde_pattern_is_denied(self):
         self.denied("Glob", "pattern", "~/.claude/**/*.md")
 
