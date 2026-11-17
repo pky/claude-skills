@@ -9,18 +9,20 @@ def at_or_under(path, directory):
     return path == directory or path.startswith(directory + "/")
 
 
-def read_uses_link(value, home, source):
+def read_uses_link(value, home, source, cwd):
     for prefix in ("~", "$HOME", "${HOME}"):
         if value == prefix or value.startswith(prefix + "/"):
             value = home + value[len(prefix):]
             break
+    if not os.path.isabs(value) and isinstance(cwd, str):
+        value = os.path.join(cwd, value)
     path = os.path.normpath(value)
     source = os.path.normpath(source)
     return (at_or_under(path, source)
             and not at_or_under(path, os.path.join(source, "projects")))
 
 
-def bash_uses_link(command, source):
+def bash_uses_link(command, home, source, cwd):
     lexer = shlex.shlex(command, posix=False, punctuation_chars=True)
     lexer.whitespace_split = True
     try:
@@ -29,12 +31,15 @@ def bash_uses_link(command, source):
     except ValueError:
         return False
 
+    cwd_is_home = isinstance(cwd, str) and os.path.normpath(cwd) == home
     for word in words:
         quote = ""
         if word[:1] in ("'", '"') and word[-1:] == word[:1]:
             quote = word[0]
             word = word[1:-1]
         prefixes = [source]
+        if cwd_is_home:
+            prefixes.extend((".claude", "./.claude"))
         if quote != "'":
             prefixes.extend(("$HOME/.claude", "${HOME}/.claude"))
         if not quote:
@@ -65,14 +70,15 @@ def main():
         if real == os.path.join(os.path.realpath(home), ".claude"):
             return
 
+        cwd = event.get("cwd")
         for field in fields:
             value = tool_input.get(field)
             if not isinstance(value, str):
                 continue
             if event["tool_name"] == "Bash":
-                blocked = bash_uses_link(value, source)
+                blocked = bash_uses_link(value, home, source, cwd)
             else:
-                blocked = read_uses_link(value, home, source)
+                blocked = read_uses_link(value, home, source, cwd)
             if not blocked:
                 continue
             reason = (
