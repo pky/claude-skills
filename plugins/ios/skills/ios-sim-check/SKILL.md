@@ -35,9 +35,11 @@ sim-lease は simctl を呼ばない。サンドボックス内からは CoreSim
 
 ```
 xcrun simctl boot <UDID>
+xcrun simctl bootstatus <UDID>
 ```
 
 - 既に起動していて "Unable to boot device in current state: Booted" と出たときは、そのまま進む
+- bootstatus は起動が終わるまで待つ（初回は数十秒かかる）。boot の直後は simctl で Booted と出ても Mobile MCP の一覧に出ないので、bootstatus が Finished か "Device already booted" を出すまで次へ進まない
 - mobile_list_available_devices を呼び、取得した UDID が出ることを確認する。出なければ登録簿の台が消えているので、返却して `<SIM_LEASE> status` の別の台を試す旨をユーザーに報告する
 
 ## 3. アプリを入れる (コード変更の確認時)
