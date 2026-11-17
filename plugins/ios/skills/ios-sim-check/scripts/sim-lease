@@ -29,7 +29,14 @@ in_pool() {
 }
 
 reclaim_stale() {
-  local d t
+  local d t attempts=0
+  # 期限判定と削除を回収用の排他ロックで保護する。
+  until /usr/bin/shlock -f "$LOCKS/.reclaim.lock" -p $$; do
+    [ "$attempts" -lt 30 ] || return 0
+    attempts=$(( attempts + 1 ))
+    sleep 0.1
+  done
+  trap 'if [ "$(cat "$LOCKS/.reclaim.lock" 2>/dev/null)" = "$$" ]; then rm -f "$LOCKS/.reclaim.lock"; fi' EXIT
   for d in "$LOCKS"/*/; do
     [ -d "$d" ] || continue
     if ! t=$(cat "$d/time" 2>/dev/null) || [ -z "$t" ]; then
@@ -39,6 +46,8 @@ reclaim_stale() {
       rm -rf "$d"
     fi
   done
+  rm -f "$LOCKS/.reclaim.lock"
+  trap - EXIT
 }
 
 cmd_init() {
