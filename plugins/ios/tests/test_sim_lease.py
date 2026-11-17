@@ -245,6 +245,77 @@ class SimLeaseTests(unittest.TestCase):
                 self.assertEqual(len(set(leased)), 4)
                 self.assertEqual(set(leased), set(UDIDS[:4]))
 
+    def test_parallel_stale_reclaims_have_one_winner_over_twenty_rounds(self):
+        self.write_pool(count=1)
+        for round_number in range(20):
+            with self.subTest(round=round_number + 1):
+                locks = self.root / f"locks-round-{round_number}"
+                lock = locks / UDIDS[0]
+                lock.mkdir(parents=True)
+                (lock / "owner").write_text("previous-owner\n", encoding="utf-8")
+                (lock / "time").write_text(
+                    f"{int(time.time()) - 120}\n", encoding="utf-8")
+                env = dict(self.env, SIM_LEASE_LOCKS=str(locks), SIM_LEASE_TTL="60")
+                barrier = threading.Barrier(4)
+
+                def acquire_together(number):
+                    barrier.wait(timeout=5)
+                    return self.run_cli("acquire", f"worker-{number}", "0", env=env)
+
+                with ThreadPoolExecutor(max_workers=4) as executor:
+                    results = list(executor.map(acquire_together, range(4)))
+                self.assertEqual(sorted(result.returncode for result in results),
+                                 [0, 1, 1, 1],
+                                 [(result.returncode, result.stdout, result.stderr)
+                                  for result in results])
+                for result in results:
+                    self.assertEqual(result.stdout,
+                                     UDIDS[0] + "\n" if result.returncode == 0 else "")
+
+    def test_acquire_reclaims_stale_lease_with_dead_reclaim_mutex(self):
+        self.write_pool(count=1)
+        lock = self.locks / UDIDS[0]
+        lock.mkdir(parents=True)
+        (lock / "owner").write_text("previous-owner\n", encoding="utf-8")
+        (lock / "time").write_text(f"{int(time.time()) - 120}\n", encoding="utf-8")
+        with subprocess.Popen(["bash", "-c", "exit 0"]) as process:
+            process.wait(timeout=5)
+            dead_pid = process.pid
+        mutex = self.locks / ".reclaim.lock"
+        mutex.write_text(f"{dead_pid}\n", encoding="utf-8")
+        env = dict(self.env, SIM_LEASE_TTL="60")
+
+        result = self.run_cli("acquire", "new-owner", "0", env=env)
+
+        self.assertEqual(self.assert_success(result), UDIDS[0] + "\n")
+        self.assertFalse(mutex.exists())
+
+    def test_acquire_preserves_stale_lease_with_live_reclaim_mutex(self):
+        self.write_pool(count=1)
+        lock = self.locks / UDIDS[0]
+        lock.mkdir(parents=True)
+        owner = lock / "owner"
+        owner.write_text("previous-owner\n", encoding="utf-8")
+        (lock / "time").write_text(f"{int(time.time()) - 120}\n", encoding="utf-8")
+        mutex = self.locks / ".reclaim.lock"
+        mutex.write_text(f"{os.getpid()}\n", encoding="utf-8")
+        env = dict(self.env, SIM_LEASE_TTL="60")
+
+        result = self.run_cli("acquire", "waiting", "0", env=env)
+
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(result.stdout, "")
+        self.assertTrue(lock.is_dir())
+        self.assertEqual(owner.read_text(encoding="utf-8"), "previous-owner\n")
+        self.assertEqual(mutex.read_text(encoding="utf-8"), f"{os.getpid()}\n")
+
+    def test_acquire_removes_reclaim_mutex_after_success(self):
+        self.write_pool(count=1)
+
+        self.assertEqual(self.acquire("worker"), UDIDS[0])
+
+        self.assertFalse((self.locks / ".reclaim.lock").exists())
+
     def test_release_makes_device_available_again(self):
         self.write_pool(count=1)
         udid = self.acquire()
