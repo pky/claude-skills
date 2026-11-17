@@ -113,6 +113,54 @@ class ClaudePathGuardTests(unittest.TestCase):
         self.denied("NotebookEdit", "file_path", f"{self.link}/a.ipynb",
                     f"{self.real}/a.ipynb")
 
+    def test_read_projects_file_path_is_allowed(self):
+        self.assertEqual(self.run_guard(
+            "Read", {"file_path": f"{self.link}/projects/p/memory/a.md"}), "")
+
+    def test_write_projects_file_path_is_allowed(self):
+        self.assertEqual(self.run_guard(
+            "Write", {"file_path": f"{self.link}/projects/p/memory/a.md"}), "")
+
+    def test_edit_projects_file_path_is_allowed(self):
+        self.assertEqual(self.run_guard(
+            "Edit", {"file_path": f"{self.link}/projects/p/memory/a.md"}), "")
+
+    def test_read_tilde_projects_file_path_is_allowed(self):
+        self.assertEqual(self.run_guard(
+            "Read", {"file_path": "~/.claude/projects/p/a.md"}), "")
+
+    def test_read_home_variable_projects_file_path_is_allowed(self):
+        self.assertEqual(self.run_guard(
+            "Read", {"file_path": "$HOME/.claude/projects/p/a.md"}), "")
+
+    def test_read_braced_home_variable_projects_file_path_is_allowed(self):
+        self.assertEqual(self.run_guard(
+            "Read", {"file_path": "${HOME}/.claude/projects/p/a.md"}), "")
+
+    def test_grep_projects_path_is_allowed(self):
+        self.assertEqual(self.run_guard(
+            "Grep", {"path": f"{self.link}/projects/p"}), "")
+
+    def test_glob_projects_path_is_allowed(self):
+        self.assertEqual(self.run_guard(
+            "Glob", {"path": f"{self.link}/projects/p"}), "")
+
+    def test_notebook_edit_projects_notebook_path_is_allowed(self):
+        self.assertEqual(self.run_guard(
+            "NotebookEdit", {"notebook_path": f"{self.link}/projects/p/a.ipynb"}), "")
+
+    def test_bash_projects_path_is_denied(self):
+        self.denied("Bash", "command", "cat ~/.claude/projects/p/a.md",
+                    f"cat {self.real}/projects/p/a.md")
+
+    def test_read_similar_projects_directory_name_is_denied(self):
+        self.denied("Read", "file_path", f"{self.link}/projectsX/a",
+                    f"{self.real}/projectsX/a")
+
+    def test_read_settings_file_path_is_denied(self):
+        self.denied("Read", "file_path", f"{self.link}/settings.json",
+                    f"{self.real}/settings.json")
+
     def test_absolute_path_with_similar_directory_name_is_allowed(self):
         self.assertEqual(self.run_guard(
             "Bash", {"command": f"cat {self.home}/.claudeX/a"}), "")
