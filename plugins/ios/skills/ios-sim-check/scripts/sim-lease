@@ -32,7 +32,9 @@ reclaim_stale() {
   local d t
   for d in "$LOCKS"/*/; do
     [ -d "$d" ] || continue
-    t=$(cat "$d/time" 2>/dev/null || echo 0)
+    if ! t=$(cat "$d/time" 2>/dev/null) || [ -z "$t" ]; then
+      t=$(stat -f %m "$d" 2>/dev/null) || continue
+    fi
     if [ $(( $(now) - t )) -gt "$TTL" ]; then
       rm -rf "$d"
     fi
