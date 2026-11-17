@@ -34,6 +34,11 @@
       "name": "retro",
       "source": "./plugins/retro",
       "description": "会話記録から止められた操作、繰り返す失敗、守られなかった指示を集めて直す先を提案する（retro）"
+    },
+    {
+      "name": "guard",
+      "source": "./plugins/guard",
+      "description": "~/.claude がリンクのとき、リンクのパスでの読み書きを止めて実体のパスを案内する。毎回の発言時に、返答を短くする決まりを渡す（guard）"
     }
   ]
 }
