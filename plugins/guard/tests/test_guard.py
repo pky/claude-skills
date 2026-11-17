@@ -55,6 +55,82 @@ class ClaudePathGuardTests(unittest.TestCase):
         self.assertIn(str(self.real), reason)
         return reason
 
+    def run_guard_with_cwd(self, tool_name, tool_input, *, cwd):
+        return self.run_raw(json.dumps({
+            "tool_name": tool_name, "tool_input": tool_input, "cwd": cwd,
+        }))
+
+    def denied_with_cwd(self, tool_name, field, value, *, cwd):
+        raw = self.run_guard_with_cwd(tool_name, {field: value}, cwd=cwd)
+        self.assertNotEqual(raw, "", "拒否を示す JSON が出力されていない")
+        specific = json.loads(raw)["hookSpecificOutput"]
+        self.assertEqual(specific["hookEventName"], "PreToolUse")
+        self.assertEqual(specific["permissionDecision"], "deny")
+        self.assertIn(str(self.real), specific["permissionDecisionReason"])
+
+    def test_grep_relative_skills_from_home_is_denied(self):
+        self.denied_with_cwd(
+            "Grep", "path", ".claude/skills", cwd=str(self.home))
+
+    def test_glob_relative_skills_from_home_is_denied(self):
+        self.denied_with_cwd(
+            "Glob", "path", ".claude/skills", cwd=str(self.home))
+
+    def test_read_relative_settings_from_home_is_denied(self):
+        self.denied_with_cwd(
+            "Read", "file_path", ".claude/settings.json", cwd=str(self.home))
+
+    def test_read_relative_projects_from_home_is_allowed(self):
+        self.assertEqual(self.run_guard_with_cwd(
+            "Read", {"file_path": ".claude/projects/p/a.md"},
+            cwd=str(self.home)), "")
+
+    def test_read_relative_parent_settings_from_project_is_denied(self):
+        self.denied_with_cwd(
+            "Read", "file_path", "../.claude/settings.json",
+            cwd=str(self.home / "project"))
+
+    def test_read_relative_settings_from_project_is_allowed(self):
+        self.assertEqual(self.run_guard_with_cwd(
+            "Read", {"file_path": ".claude/settings.json"},
+            cwd=str(self.home / "project")), "")
+
+    def test_read_relative_settings_without_cwd_is_allowed(self):
+        self.assertEqual(self.run_guard(
+            "Read", {"file_path": ".claude/settings.json"}), "")
+
+    def test_read_relative_settings_with_non_string_cwd_is_allowed(self):
+        for cwd in (None, 42, False, [], {}):
+            with self.subTest(cwd=cwd):
+                self.assertEqual(self.run_guard_with_cwd(
+                    "Read", {"file_path": ".claude/settings.json"}, cwd=cwd), "")
+
+    def test_bash_relative_settings_from_home_is_denied(self):
+        self.denied_with_cwd(
+            "Bash", "command", "cat .claude/settings.json", cwd=str(self.home))
+
+    def test_bash_dot_relative_directory_from_home_is_denied(self):
+        self.denied_with_cwd(
+            "Bash", "command", "ls ./.claude", cwd=str(self.home))
+
+    def test_bash_double_quoted_relative_path_from_home_is_denied(self):
+        self.denied_with_cwd(
+            "Bash", "command", 'cat ".claude/x"', cwd=str(self.home))
+
+    def test_bash_commit_message_with_relative_path_from_home_is_allowed(self):
+        self.assertEqual(self.run_guard_with_cwd(
+            "Bash", {"command": 'git commit -m "fix .claude"'},
+            cwd=str(self.home)), "")
+
+    def test_bash_relative_similar_directory_from_home_is_allowed(self):
+        self.assertEqual(self.run_guard_with_cwd(
+            "Bash", {"command": "ls .claudeX"}, cwd=str(self.home)), "")
+
+    def test_bash_relative_settings_from_project_is_allowed(self):
+        self.assertEqual(self.run_guard_with_cwd(
+            "Bash", {"command": "cat .claude/settings.json"},
+            cwd=str(self.home / "project")), "")
+
     def test_bash_absolute_path_is_denied(self):
         self.denied("Bash", "command", f"cat {self.link}/settings.json")
 
