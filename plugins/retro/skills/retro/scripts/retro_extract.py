@@ -177,6 +177,14 @@ class Extractor:
             assistant_text = text_content(content)
             if assistant_text:
                 self.previous_assistant[session_key] = assistant_text[-200:]
+        # 範囲外の呼び出しも、範囲内の結果との対応付けに使う。
+        if record.get("type") == "assistant" and isinstance(content, list):
+            for block in content:
+                if not isinstance(block, dict) or block.get("type") != "tool_use":
+                    continue
+                tool_id = block.get("id")
+                if isinstance(tool_id, str):
+                    calls[(session, tool_id)] = block
         timestamp = record.get("timestamp")
         try:
             parsed_time = parse_time(timestamp) if isinstance(timestamp, str) else None
@@ -188,14 +196,7 @@ class Extractor:
             "project": project, "session": session,
             "timestamp": timestamp if parsed_time is not None else None,
         }
-        if record.get("type") == "assistant" and isinstance(content, list):
-            for block in content:
-                if not isinstance(block, dict) or block.get("type") != "tool_use":
-                    continue
-                tool_id = block.get("id")
-                if isinstance(tool_id, str):
-                    calls[(session, tool_id)] = block
-        elif record.get("type") == "user":
+        if record.get("type") == "user":
             if isinstance(content, list):
                 for block in content:
                     if isinstance(block, dict) and block.get("type") == "tool_result":
