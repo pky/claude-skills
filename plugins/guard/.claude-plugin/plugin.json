@@ -1,6 +1,6 @@
 {
   "name": "guard",
-  "description": "~/.claude がリンクのとき、リンクのパスでの読み書きを止めて実体のパスを案内する。毎回の発言時に、返答を短くする決まりを渡す（guard）",
+  "description": "~/.claude がリンクのとき、リンクのパスを使う Read、Grep、Glob、Bash を止めて実体のパスを案内する。毎回の発言時に、返答を短くする決まりを渡す（guard）",
   "author": {
     "name": "pky"
   }
