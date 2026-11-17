@@ -2,7 +2,7 @@
 # シミュレータの貸し出し台帳。登録簿に載っている台だけを貸す。台は作らない・複製しない・落とさない。
 # 使い方:
 #   sim-lease init <一覧ファイル>          xcrun simctl list devices available の出力から iPhone を登録簿に書き出す（登録簿が無いときだけ）
-#   sim-lease acquire <ラベル> [待ち秒数]   空き台の UDID を標準出力に出す。無ければ待ち、時間切れで exit 1
+#   sim-lease acquire [--udid <UDID>] <ラベル> [待ち秒数]   空き台の UDID を標準出力に出す。無ければ待ち、時間切れで exit 1
 #   sim-lease release <UDID>               返却
 #   sim-lease status                       全台の貸出状況
 # 登録簿: SIM_LEASE_POOL（既定 ~/.config/sim-lease/pool.txt）。1行に「UDID 名前」。UDID は Mac ごとに違うので持ち回らない
@@ -73,6 +73,15 @@ cmd_init() {
 
 cmd_acquire() {
   need_pool
+  local requested_udid=""
+  if [ "${1:-}" = "--udid" ]; then
+    requested_udid="${2:-}"
+    if [ -z "$requested_udid" ] || ! in_pool "$requested_udid"; then
+      echo "登録簿に無い UDID: $requested_udid" >&2
+      exit 2
+    fi
+    shift 2
+  fi
   local label="${1:-unknown}"
   local wait="${2:-120}"
   local deadline=$(( $(now) + wait ))
@@ -82,6 +91,7 @@ cmd_acquire() {
     reclaim_stale
     while read -r udid name; do
       case "$udid" in ''|\#*) continue ;; esac
+      [ -z "$requested_udid" ] || [ "$udid" = "$requested_udid" ] || continue
       if mkdir "$LOCKS/$udid" 2>/dev/null; then
         echo "$label" > "$LOCKS/$udid/owner"
         now > "$LOCKS/$udid/time"
@@ -128,5 +138,5 @@ case "${1:-}" in
   acquire) shift; cmd_acquire "$@" ;;
   release) shift; cmd_release "$@" ;;
   status) cmd_status ;;
-  *) echo "使い方: sim-lease init <一覧ファイル> | acquire <ラベル> [待ち秒数] | release <UDID> | status" >&2; exit 2 ;;
+  *) echo "使い方: sim-lease init <一覧ファイル> | acquire [--udid <UDID>] <ラベル> [待ち秒数] | release <UDID> | status" >&2; exit 2 ;;
 esac
