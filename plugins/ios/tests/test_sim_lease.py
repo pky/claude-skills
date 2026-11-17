@@ -3,6 +3,7 @@
 from concurrent.futures import ThreadPoolExecutor
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 import threading
@@ -182,6 +183,36 @@ class SimLeaseTests(unittest.TestCase):
         self.assertEqual(self.acquire("second", env=env), first)
         self.assertEqual((self.locks / first / "owner").read_text().strip(), "second")
 
+    def test_acquire_preserves_fresh_lock_without_time_file(self):
+        self.write_pool(count=1)
+        lock = self.locks / UDIDS[0]
+        lock.mkdir(parents=True)
+        owner = lock / "owner"
+        owner.write_text("current-owner\n", encoding="utf-8")
+        env = dict(self.env, SIM_LEASE_TTL="60")
+
+        result = self.run_cli("acquire", "waiting", "0", env=env)
+
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(result.stdout, "")
+        self.assertTrue(lock.is_dir())
+        self.assertEqual(owner.read_text(encoding="utf-8"), "current-owner\n")
+
+    def test_acquire_reclaims_stale_lock_without_time_file(self):
+        self.write_pool(count=1)
+        lock = self.locks / UDIDS[0]
+        lock.mkdir(parents=True)
+        owner = lock / "owner"
+        owner.write_text("previous-owner\n", encoding="utf-8")
+        stale_time = time.time() - 120
+        os.utime(lock, (stale_time, stale_time))
+        env = dict(self.env, SIM_LEASE_TTL="60")
+
+        result = self.run_cli("acquire", "new-owner", "0", env=env)
+
+        self.assertEqual(self.assert_success(result), UDIDS[0] + "\n")
+        self.assertEqual(owner.read_text(encoding="utf-8"), "new-owner\n")
+
     def test_four_parallel_acquires_return_four_distinct_udids(self):
         self.write_pool(count=4)
         barrier = threading.Barrier(4)
@@ -195,6 +226,24 @@ class SimLeaseTests(unittest.TestCase):
         leased = [self.assert_success(result).strip() for result in results]
         self.assertEqual(len(set(leased)), 4)
         self.assertEqual(set(leased), set(UDIDS[:4]))
+
+    def test_four_parallel_acquires_return_four_distinct_udids_over_twenty_rounds(self):
+        self.write_pool(count=4)
+        for round_number in range(20):
+            if round_number:
+                shutil.rmtree(self.locks)
+            with self.subTest(round=round_number + 1):
+                barrier = threading.Barrier(4)
+
+                def acquire_together(number):
+                    barrier.wait(timeout=5)
+                    return self.run_cli("acquire", f"worker-{number}", "0")
+
+                with ThreadPoolExecutor(max_workers=4) as executor:
+                    results = list(executor.map(acquire_together, range(4)))
+                leased = [self.assert_success(result).strip() for result in results]
+                self.assertEqual(len(set(leased)), 4)
+                self.assertEqual(set(leased), set(UDIDS[:4]))
 
     def test_release_makes_device_available_again(self):
         self.write_pool(count=1)
