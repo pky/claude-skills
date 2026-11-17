@@ -35,6 +35,11 @@ def main():
             value = tool_input.get(field)
             if not isinstance(value, str):
                 continue
+            if event["tool_name"] != "Bash" and value.startswith(tuple(
+                prefix + "/projects/"
+                for prefix in (source, "~/.claude", "$HOME/.claude", "${HOME}/.claude")
+            )):
+                continue
             rewritten, count = pattern.subn(lambda match: real, value)
             if not count:
                 continue
