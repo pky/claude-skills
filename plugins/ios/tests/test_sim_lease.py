@@ -94,6 +94,58 @@ class SimLeaseTests(unittest.TestCase):
             result = self.run_cli("acquire", "worker", "0")
             self.assertEqual(self.assert_success(result), udid + "\n")
 
+    def test_acquire_udid_selects_requested_device_and_records_owner(self):
+        self.write_pool(count=3)
+        udid = UDIDS[2]
+        result = self.run_cli("acquire", "--udid", udid, "target-worker", "0")
+        self.assertEqual(self.assert_success(result), udid + "\n")
+        self.assertEqual({p.name for p in self.locks.iterdir()}, {udid})
+        self.assertTrue((self.locks / udid).is_dir())
+        self.assertEqual((self.locks / udid / "owner").read_text().strip(),
+                         "target-worker")
+
+    def test_acquire_udid_busy_waits_then_times_out_without_fallback(self):
+        self.write_pool(count=3)
+        udid = self.acquire("current-owner")
+        before = time.monotonic()
+        result = self.run_cli("acquire", "--udid", udid, "waiting", "1")
+        elapsed = time.monotonic() - before
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(result.stdout, "")
+        self.assertGreaterEqual(elapsed, 1)
+        self.assertEqual({p.name for p in self.locks.iterdir()}, {udid})
+        self.assertEqual((self.locks / udid / "owner").read_text().strip(),
+                         "current-owner")
+
+    def test_acquire_udid_waits_until_requested_device_is_released(self):
+        self.write_pool(count=3)
+        udid = self.acquire("current-owner")
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            pending = executor.submit(
+                self.run_cli, "acquire", "--udid", udid, "waiting", "12")
+            time.sleep(1.1)
+            returned_before_release = pending.done()
+            self.assert_success(self.run_cli("release", udid))
+            result = pending.result(timeout=13)
+        self.assertFalse(returned_before_release,
+                         "指定台が返却されるまで取得処理が待機すること")
+        self.assertEqual(self.assert_success(result), udid + "\n")
+        self.assertEqual({p.name for p in self.locks.iterdir()}, {udid})
+        self.assertEqual((self.locks / udid / "owner").read_text().strip(), "waiting")
+
+    def test_acquire_udid_outside_pool_exits_two_without_locks(self):
+        self.write_pool(count=3)
+        result = self.run_cli("acquire", "--udid", UDIDS[4], "worker", "0")
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(list(self.locks.glob("*")), [])
+
+    def test_acquire_udid_missing_value_exits_two_without_locks(self):
+        self.write_pool(count=3)
+        result = self.run_cli("acquire", "--udid")
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertEqual(list(self.locks.glob("*")), [])
+
     def test_acquire_exhausted_pool_exits_one_with_reason(self):
         self.write_pool(count=1)
         self.acquire()
