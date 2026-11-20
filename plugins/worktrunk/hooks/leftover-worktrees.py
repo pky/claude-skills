@@ -60,6 +60,7 @@ def main():
         )
         merged_prs = json.loads(result.stdout)
         log = Path(os.environ["HOME"]) / ".claude" / "hook-observe.log"
+        session_cwd = Path(cwd).resolve()
 
         for worktree in candidates:
             branch_ref = worktree["branch"]
@@ -70,6 +71,7 @@ def main():
                 if not local_head_is_ancestor(cwd, branch_ref, pr["headRefOid"]):
                     continue
 
+                worktree_path = Path(worktree["worktree"]).resolve()
                 record = {
                     "time": datetime.now().astimezone().isoformat(timespec="seconds"),
                     "hook": "wt-leftover",
@@ -78,6 +80,7 @@ def main():
                     "branch": branch,
                     "pr": pr["number"],
                     "url": pr["url"],
+                    "in_session_cwd": session_cwd == worktree_path or worktree_path in session_cwd.parents,
                 }
                 log.parent.mkdir(parents=True, exist_ok=True)
                 with log.open("a", encoding="utf-8") as stream:
