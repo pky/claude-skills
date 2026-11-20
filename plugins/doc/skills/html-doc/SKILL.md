@@ -11,13 +11,17 @@ description: ドキュメントや手順書を、外部の資源に頼らない1
 
 - 作業ディレクトリが Git リポジトリなら `~/Documents/<リポジトリ名>/`、そうでなければ `~/Documents/` 直下
 - `<リポジトリ名>` は作業ディレクトリのフォルダ名
-- ファイル名は内容が分かる英小文字とハイフン（例: `release-procedure.html`）。図の PNG も同じフォルダに置く
+- 名前は内容が分かる英小文字とハイフン（例: `release-procedure`）。以下 `<名前>` と書く
+- 同じフォルダに次のファイルを置く
+  - 下書き: `<名前>.draft.html`。書くのも直すのもこのファイル
+  - 完成: `<名前>.html`。6 で下書きから作る。手で直さない
+  - 図: `<名前>-fig1.png`、`<名前>-fig1.diagram.html`（stack-diagram の出力の HTML）。2枚目からは fig2、fig3
 - 同じ名前のファイルがあれば、上書きの前に利用者に確かめる
 - リポジトリの中には置かない
 
 ## 2. 雛形から書く
 
-`assets/template.html` を保存先に写して、中身を書き換える。雛形にある次の部品は消さない。
+`assets/template.html` を `<名前>.draft.html` として保存先に写して、中身を書き換える。雛形のタイトル、日付、仮置きの図（透明の GIF）、例の表と手順は、すべて本文に置き換えるか消す。図がない文書では `<figure>` ごと消す。雛形にある次の部品は消さない。
 
 - `<nav id="toc">` の目次。h2 はすべて目次に載せ、h3 は必要なものだけ載せる。見出しには必ず id を付ける
 - `<section id="summary">` の要約。結論を先に、3行前後
@@ -38,7 +42,8 @@ description: ドキュメントや手順書を、外部の資源に頼らない1
 
 - 図は stack-diagram skill を呼んで作る。ここで手順を書き写さず、stack-diagram の手順に従う
 - 図の中の文字にも 3 の決まりを当てる。日本語の図は `lang="ja"` にする
-- 出力は PNG にし、ライトの1枚だけを使う。PNG は文書と同じフォルダに置き、`<figure>` の `<img src="相対パス">` に書く
+- stack-diagram の出力の HTML を `<名前>-fig1.diagram.html` として保存し、そこからライトの PNG を1枚だけ `<名前>-fig1.png` に書き出す。図を直すときは diagram.html を直して PNG を作り直す
+- 下書きの `<figure>` に `<img src="<名前>-fig1.png">` と書く。srcset は使わない
 - 各図に `<figcaption>`（「図1 〜」）と、内容が分かる `alt` を付ける
 
 ## 5. 推敲
@@ -47,21 +52,21 @@ description: ドキュメントや手順書を、外部の資源に頼らない1
 
 ## 6. 1ファイルにまとめる
 
-画像を data URI にして HTML に埋め込む。入力と出力は別のファイルにする。`<skill>` はこの skill のディレクトリ。
+画像を data URI にして完成のファイルに埋め込む。`<skill>` はこの skill のディレクトリ。
 
 ```bash
-python3 <skill>/scripts/inline_images.py <下書き.html> <完成.html>
+python3 <skill>/scripts/inline_images.py <名前>.draft.html <名前>.html
 ```
 
-下書きの HTML は、完成版を確かめたあとに消してよい。PNG は図を直すときのために残す。
+下書きと図のファイルは、あとで直すときのために残す。
 
 ## 7. 検査
 
 ```bash
-python3 <skill>/scripts/check_doc.py <完成.html>
+python3 <skill>/scripts/check_doc.py <名前>.html
 ```
 
-`PASS` が出るまで直して、6 から打ち直す。`FAIL:` の行が違反の場所を示す。検査を通さずに完了としない。
+`FAIL:` の行が違反の場所と前後の文字を示す。FAIL が出たら下書きを直し、6 から打ち直す。完成のファイルは直さない（6 で上書きされる）。`PASS` が出るまで繰り返し、検査を通さずに完了としない。
 
 ## 完了条件
 
@@ -74,4 +79,4 @@ python3 <skill>/scripts/check_doc.py <完成.html>
 - 保存先の絶対パス
 - check_doc.py の結果
 - 図の数と、stack-diagram で作ったか
-- ブラウザで開くコマンド（`open <完成.html>`）。sandbox では open が使えないため、利用者に打ってもらう
+- ブラウザで開くコマンド（`open <名前>.html` の絶対パス）。sandbox では open が使えないため、利用者に打ってもらう
