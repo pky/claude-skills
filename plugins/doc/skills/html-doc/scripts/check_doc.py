@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """単一の HTML 文書が html-doc の契約を満たすか検査する。"""
 
+from html import unescape
 from html.parser import HTMLParser
 from pathlib import Path
 import re
@@ -8,20 +9,26 @@ import sys
 
 
 RESOURCE_ATTRIBUTES = {
-    "link": "href",
-    "script": "src",
-    "img": "src",
-    "source": "src",
-    "iframe": "src",
-    "video": "src",
-    "audio": "src",
+    "link": ("href",),
+    "script": ("src",),
+    "img": ("src", "srcset"),
+    "source": ("src", "srcset"),
+    "iframe": ("src",),
+    "video": ("src", "poster"),
+    "audio": ("src",),
+    "object": ("data",),
+    "embed": ("src",),
 }
+SRCSET_URL = re.compile(r"[\s,]*(data:\S*|[^\s,]+)")
 VOID_ELEMENTS = {
     "area", "base", "br", "col", "embed", "hr", "img", "input", "link",
     "meta", "param", "source", "track", "wbr",
 }
-EXEMPT_TEXT = {"head", "script", "style", "code", "pre"}
-POLITE_WORD = re.compile("です|でした|でしょう|ます|ました|ません|ましょう")
+EXEMPT_TEXT = {"script", "style", "code", "pre"}
+POLITE_WORD = re.compile(
+    r"ますます|でした|でしょう|ました|ません|ましょう"
+    r"|(?:です|ます)(?=\Z|[\s。、．，！？!?」』）)がねよかし])"
+)
 CSS_COMMENT = r"/\*[\s\S]*?(?:\*/|\Z)"
 CSS_SPACE = rf"(?:[ \t\n\r\f]|{CSS_COMMENT})"
 CSS_STRING = r""""(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*'"""
@@ -31,11 +38,51 @@ CSS_TOKENS = re.compile(
     | (?<![\w-]) @import (?![\w-]) {CSS_SPACE}* (?P<import_value>{CSS_STRING})
     | (?<![\w@-]) url\( [ \t\n\r\f]*
       (?P<url_value>{CSS_STRING}|(?:\\[\s\S]|[^"'()\\])*?) [ \t\n\r\f]* \)
-    | (?<![\w-]) (?P<print_media>@media {CSS_SPACE}+ print(?![\w-]))
+    | (?<![\w-]) (?P<media>@media)(?![\w-])
     | {CSS_STRING}
     """,
     re.IGNORECASE | re.VERBOSE,
 )
+CSS_MEDIA_TOKENS = re.compile(rf"{CSS_COMMENT}|{CSS_STRING}|[\w-]+|[^\s]")
+
+
+def srcset_urls(value):
+    position = 0
+    while match := SRCSET_URL.match(value, position):
+        url = match[1]
+        position = match.end()
+        # data URL の内部のカンマを保ち、末尾の候補区切りだけを取り除く。
+        if url.startswith("data:") and url.endswith(",") and url.count(",") > 1:
+            yield url.rstrip(",")
+            continue
+        yield url
+        separator = value.find(",", position)
+        if separator == -1:
+            break
+        position = separator + 1
+
+
+def has_print_query(css, start):
+    depth = 0
+    expect_media_type = True
+    for token in CSS_MEDIA_TOKENS.finditer(css, start):
+        term = token[0].lower()
+        if term.startswith("/*"):
+            continue
+        if term in {"{", "}", ";"}:
+            break
+        if term == "," and depth == 0:
+            expect_media_type = True
+            continue
+        if expect_media_type:
+            if term == "print":
+                return True
+            expect_media_type = term in {"not", "only"}
+        if term == "(":
+            depth += 1
+        elif term == ")" and depth:
+            depth -= 1
+    return False
 
 
 class DocumentCheck(HTMLParser):
@@ -43,8 +90,9 @@ class DocumentCheck(HTMLParser):
         "script", "style", "iframe", "noembed", "noframes", "textarea", "title", "xmp",
     )
 
-    def __init__(self):
+    def __init__(self, html):
         super().__init__()
+        self.source_lines = html.split("\n")
         self.elements = []
         self.failures = []
         self.has_toc = False
@@ -68,15 +116,22 @@ class DocumentCheck(HTMLParser):
                 if value.startswith(('"', "'")):
                     value = value[1:-1]
                 self.check_reference(location, value)
-            elif token["print_media"] and location == "<style>":
-                self.has_print_media = True
+            elif token["media"] and location == "<style>" and not self.has_print_media:
+                self.has_print_media = has_print_query(css, token.end())
 
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
         element_id = attributes.get("id")
-        resource = RESOURCE_ATTRIBUTES.get(tag)
-        if resource in attributes:
-            self.check_reference(f"<{tag} {resource}>", attributes[resource] or "")
+        for resource in RESOURCE_ATTRIBUTES.get(tag, ()):
+            if resource not in attributes:
+                continue
+            location = f"<{tag} {resource}>"
+            value = attributes[resource] or ""
+            if resource == "srcset":
+                for url in srcset_urls(value):
+                    self.check_reference(location, url)
+            else:
+                self.check_reference(location, value)
         if attributes.get("style"):
             self.check_css(attributes["style"], f"<{tag} style>")
 
@@ -112,17 +167,41 @@ class DocumentCheck(HTMLParser):
                 break
 
     def handle_data(self, data):
-        if self.elements and self.elements[-1][0] == "style":
+        tag = self.elements[-1][0] if self.elements else None
+        if tag == "style":
             self.check_css(data, "<style>")
         if any(tag in EXEMPT_TEXT for tag, _, _ in self.elements):
             return
+        if tag in {"title", "textarea"}:
+            data = unescape(data)
 
         for _, _, heading_text in reversed(self.elements):
             if heading_text is not None:
                 heading_text.append(data)
                 break
+
+        self.check_polite_text(data, tag)
+
+    def check_polite_text(self, data, tag):
+        line, column = self.getpos()
+        decode = tag not in self.CDATA_CONTENT_ELEMENTS or tag in {"title", "textarea"}
+        next_line_start = len(data)
+        if "\n" in data:
+            next_line_start = self.source_line_length(line, column, decode) + 1
         for word in POLITE_WORD.finditer(data):
-            self.failures.append(f"本文の敬体表現 {word[0]!r}（{self.getpos()[0]} 行目）")
+            if word[0] == "ますます":
+                continue
+            start, end = word.span()
+            while start >= next_line_start:
+                line += 1
+                next_line_start += self.source_line_length(line, 0, decode) + 1
+            excerpt = " ".join(data[max(0, start - 10):end + 10].splitlines())
+            self.failures.append(f"敬体 {word[0]!r}（{line} 行目）: {excerpt}")
+
+    def source_line_length(self, line, column, decode):
+        # 文字参照で挿入された改行は、ファイルの行番号に含めない。
+        source = self.source_lines[line - 1][column:]
+        return len(unescape(source) if decode else source)
 
     def finish(self):
         if not self.has_toc:
@@ -156,7 +235,7 @@ def main(args):
         print(f"HTML を読めない {args[0]!r}: {error}", file=sys.stderr)
         return 2
 
-    check = DocumentCheck()
+    check = DocumentCheck(html)
     check.feed(html)
     check.close()
     failures = check.finish()
