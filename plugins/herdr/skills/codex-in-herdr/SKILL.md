@@ -14,6 +14,7 @@ Herdr の中では Codex を Herdr のペインで動かす。サイドバーで
   - 返る pane_id を控える
 - `herdr pane run <pane_id> "codex --sandbox workspace-write '<短い英語のプロンプト>'"` で起動する。pane run は引数をつなげて1行のシェルコマンドにするので、全体を1つの文字列にし、プロンプトは内側の単引用符で囲む。長い指示はファイルに書き、そのパスをプロンプトで渡す
 - 完了待ちは `herdr agent wait <pane_id>` をバックグラウンドで動かす。起動直後は Herdr が Codex を認識する前で agent_not_found になるので、先に `herdr agent wait <pane_id> --until working --timeout 60000` で起動を確かめ、失敗したら数秒おいてもう一度呼ぶ。結果は `herdr pane read <pane_id>` で読む
+- `codex review` は Herdr に Codex として認識されないので、`herdr agent wait` では待てない（agent_not_found のまま）。出力をファイルに向け、最後に終了コードの行を書かせて起動する: `herdr pane run <pane_id> "codex review --base <基点> > <出力ファイル> 2>&1; echo REVIEW_EXIT=\$? >> <出力ファイル>"`。待つ側は、`REVIEW_EXIT=` の行が出るまで grep を繰り返すスクリプトを scratchpad に置き、バックグラウンドで動かす。この行は正常に終わっても異常に終わっても出る。pgrep のプロセス名や、出力の途中の文言（tokens used など）では待たない。どちらも終わりと一致せず、待ちが止まらなかったり早く切れたりする。`--base` と指示文は一緒に渡せない
 - 同じ作業への追加指示（レビュー指摘の修正など）は、起動中の Codex に `herdr agent prompt <pane_id> "<短い英語のプロンプト>" --wait --until working --timeout 30000` で送る
 - テスト作成と実装は別セッションにする。同じペインを使い回すときは `herdr pane send-text <pane_id> "/quit"` と `herdr pane send-keys <pane_id> enter` で前の Codex を閉じてから起動し直す
 - 作業が終わったら、結果を `herdr pane read` で読み、コミットまで済んだことを確かめてから `herdr pane close <pane_id>` でペインを閉じる。閉じると画面の履歴も消えるので、読む前には閉じない
