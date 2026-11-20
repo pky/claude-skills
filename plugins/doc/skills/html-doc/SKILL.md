@@ -16,7 +16,7 @@ description: ドキュメントや手順書を、外部の資源に頼らない1
   - 下書き: `<名前>.draft.html`。書くのも直すのもこのファイル
   - 完成: `<名前>.html`。6 で下書きから作る。手で直さない
   - 図: `<名前>-fig1.png`、`<名前>-fig1.diagram.html`（stack-diagram の出力の HTML）。2枚目からは fig2、fig3
-- 同じ名前のファイルがあれば、上書きの前に利用者に確かめる
+- 書き始める前に、同じ名前のファイルがあれば上書きしてよいか利用者に確かめる。自分がこの作業で作ったファイルを 6 と 7 の繰り返しで上書きするときは確かめない
 - リポジトリの中には置かない
 
 ## 2. 雛形から書く
@@ -52,10 +52,10 @@ description: ドキュメントや手順書を、外部の資源に頼らない1
 
 ## 6. 1ファイルにまとめる
 
-画像を data URI にして完成のファイルに埋め込む。`<skill>` はこの skill のディレクトリ。
+画像を data URI にして完成のファイルに埋め込む。`<skill>` はこの skill のディレクトリ、`<保存先>` は 1 で決めたフォルダ。どちらも絶対パスで書く。
 
 ```bash
-python3 <skill>/scripts/inline_images.py <名前>.draft.html <名前>.html
+python3 <skill>/scripts/inline_images.py <保存先>/<名前>.draft.html <保存先>/<名前>.html
 ```
 
 下書きと図のファイルは、あとで直すときのために残す。
@@ -63,7 +63,7 @@ python3 <skill>/scripts/inline_images.py <名前>.draft.html <名前>.html
 ## 7. 検査
 
 ```bash
-python3 <skill>/scripts/check_doc.py <名前>.html
+python3 <skill>/scripts/check_doc.py <保存先>/<名前>.html
 ```
 
 `FAIL:` の行が違反の場所と前後の文字を示す。FAIL が出たら下書きを直し、6 から打ち直す。完成のファイルは直さない（6 で上書きされる）。`PASS` が出るまで繰り返し、検査を通さずに完了としない。
