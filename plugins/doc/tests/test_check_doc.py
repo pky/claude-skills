@@ -102,6 +102,28 @@ class CheckDocTests(unittest.TestCase):
                     html = HTML.replace(closing_tag, reference.format(value=value) + closing_tag)
                     self.assert_pass(self.check_html(html))
 
+    def test_img_srcset_with_external_candidate_fails(self):
+        html = HTML.replace(
+            "</body>", '<img srcset="a.png 1x, data:image/png;base64,AA 2x"></body>',
+        )
+        self.assert_fail(html, "a.png")
+
+    def test_img_srcset_with_only_data_candidates_passes(self):
+        html = HTML.replace(
+            "</body>",
+            '<img srcset="data:image/png;base64,AA== 1x, data:image/png;base64,AQ== 2x"></body>',
+        )
+        self.assert_pass(self.check_html(html))
+
+    def test_external_video_poster_object_data_and_embed_src_fail(self):
+        for fragment, value in (
+            ('<video poster="p.png"></video>', "p.png"),
+            ('<object data="https://x.test/a"></object>', "https://x.test/a"),
+            ('<embed src="e.svg">', "e.svg"),
+        ):
+            with self.subTest(fragment=fragment):
+                self.assert_fail(HTML.replace("</body>", fragment + "</body>"), value)
+
     def test_css_import_url_is_one_reference(self):
         value = "https://example.test/print.css"
         html = HTML.replace("</head>", f'<style>@import url("{value}");</style></head>')
@@ -163,10 +185,52 @@ class CheckDocTests(unittest.TestCase):
         )
         self.assert_pass(self.check_html(html))
 
+    def test_print_media_in_list_or_with_condition_passes(self):
+        for query in ("@media screen, print", "@media print and (min-width: 1px)"):
+            with self.subTest(query=query):
+                self.assert_pass(self.check_html(HTML.replace("@media print", query)))
+
+    def test_print_media_only_in_css_comment_fails(self):
+        html = HTML.replace("<style>", "<style>/* ").replace("</style>", " */</style>")
+        self.assert_fail(html)
+
+    def test_print_media_only_in_style_attribute_fails(self):
+        html = HTML.replace("@media print", "@media screen").replace(
+            "<p>作業を完了した。</p>",
+            '<p style="@media print { color: black; }">作業を完了した。</p>',
+        )
+        self.assert_fail(html)
+
     def test_polite_words_in_body_text_fail(self):
         for word in ("です", "でした", "でしょう", "ます", "ました", "ません", "ましょう"):
             with self.subTest(word=word):
                 self.assert_fail(HTML.replace("作業を完了した。", f"作業{word}。"), word)
+
+    def test_polite_word_substrings_in_body_text_pass(self):
+        for phrase in ("ですべて", "ですぐ", "ですでに", "ますます"):
+            with self.subTest(phrase=phrase):
+                self.assert_pass(self.check_html(HTML.replace("作業を完了した。", phrase)))
+
+    def test_polite_words_before_punctuation_newline_or_particle_fail(self):
+        for phrase, word in (("確認です。", "です"), ("行います\n", "ます"), ("ですが", "です")):
+            with self.subTest(phrase=phrase):
+                self.assert_fail(HTML.replace("作業を完了した。", phrase), word)
+
+    def test_polite_word_in_title_fails(self):
+        self.assert_fail(HTML.replace("<title>作業記録</title>", "<title>手順書です</title>"), "です")
+
+    def test_polite_word_failure_reports_actual_line_and_surrounding_text(self):
+        sentence = "手順を確認です。次に進む"
+        html = HTML.replace("<p>作業を完了した。</p>", f"<p>\n\n\n{sentence}\n</p>")
+        line_number = html.splitlines().index(sentence) + 1
+
+        result = self.check_html(html)
+        self.assertEqual(result.returncode, 1, result.stderr or result.stdout)
+        lines = result.stdout.splitlines()
+        self.assertEqual(len(lines), 1, result.stdout)
+        self.assertRegex(lines[0], r"^FAIL: \s*\S")
+        self.assertRegex(lines[0], rf"(?<!\d){line_number}(?!\d)")
+        self.assertIn(sentence, lines[0])
 
     def test_polite_words_in_exempt_text_and_attributes_pass(self):
         for fragment in (
