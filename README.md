@@ -17,6 +17,7 @@ pky の自作スキルを Claude Code と Codex のプラグインとして配�
 - retro: 会話記録から止められた操作、繰り返す失敗、守られなかった指示を集めて直す先を提案する（retro）
 - guard: ~/.claude がリンクのとき、リンクのパスを使う Read、Grep、Glob、Bash を止めて実体のパスを案内する。毎回の発言時に、返答を短くする決まりを渡す
 - ios: iOS シミュレータを他の開発とぶつからないように借りて動作確認する（ios-sim-check）。初回は skill が `sim-lease init` で、その Mac のシミュレータを登録簿（~/.config/sim-lease/pool.txt）に書き出す
+- doc: ドキュメントや手順書を、目次と図の入った1枚の HTML で作る（html-doc）。図は stack-diagram、推敲は yomiyasu を使うので、両方を「外部スキル」の節の手順で入れておく
 
 PR を自動で進めたくない環境では pr-auto を入れない。
 
