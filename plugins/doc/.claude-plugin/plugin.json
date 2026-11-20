@@ -1,0 +1,7 @@
+{
+  "name": "doc",
+  "description": "ドキュメントや手順書を、目次と図の入った1枚の HTML で作る（html-doc）",
+  "author": {
+    "name": "pky"
+  }
+}
