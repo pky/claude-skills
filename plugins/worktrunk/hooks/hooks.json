@@ -1,0 +1,18 @@
+{
+  "description": "セッション開始時にマージ済み PR の worktree が残っていれば観測ログに記録する",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/leftover-worktrees.py"],
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}
