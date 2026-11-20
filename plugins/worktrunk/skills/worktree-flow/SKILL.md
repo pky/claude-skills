@@ -6,6 +6,7 @@ description: Worktrunk（wt コマンド）で worktree を作る、設定や資
 # Worktrunk の手順
 
 - 開始前に `git status --short`、`git worktree list`、ブランチと基点コミットを確認する。新規作成は `wt switch --create feature/<topic> --base <base> --no-hooks` を基本とし、既存ブランチの再利用時も `--no-hooks` を付ける。命名はリポジトリ指定を優先し、既存変更の無断移動・上書きをしない。
+- worktree での作業は `cd` だけの1回の呼び出しで入ってから行う。`git -C` は使わない。EnterWorktree と ExitWorktree は許可のダイアログが出るので使わない
 - 環境設定・非公開資料は必要な対象だけ準備する。`.worktreeinclude` がある場合も内容を確認し、`wt step copy-ignored --from <source> --to <target> --require-include --dry-run` で対象を確認してから、同じ指定で `--dry-run` を外してコピーする。依存関係は各 worktree 内で独立して準備し、別 worktree の node_modules 等の依存ディレクトリを丸ごと共有する symlink は作らない（パッケージ管理ツール内部の正規の symlink は対象外）。`.worktreeinclude` がない場合は必要なファイルを個別確認し、無差別な copy-ignored や `--force`、既存先の上書きをしない。秘密値を表示しない。
 - 開始元の最新の指示ファイルと、存在する `ROADMAP.md` / `doc/ROADMAP.md` / `progress.txt` の正本を確認する。Git管理外の資料は引継ぎ先でも読めるよう必要な対象だけ用意し、コピー側から正本へ並行上書きしない。正本の更新は統括側で集約する。
 - PR がマージされたら、消す前にセッションの作業場所をメインの作業ツリー（`git worktree list` の先頭の行のパス。<基点> のブランチとは限らない）へ `cd` だけの1回の呼び出しで移す。消す worktree の中にいたまま消すと、そのあとは存在しない場所でシェルが起動できず、`/clear` のあとも次の作業がその場所で始まる。worktree に入ったときに出る「元のリポジトリへ cd しない」という案内は、片付けでは当てはめない。移ったら次の呼び出しで `pwd` と `git rev-parse --git-dir` を見て、作業場所がメインの作業ツリーで `.git/worktrees/` の下でないことを確かめてから消す
