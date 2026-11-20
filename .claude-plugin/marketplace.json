@@ -18,7 +18,7 @@
     {
       "name": "worktrunk",
       "source": "./plugins/worktrunk",
-      "description": "Worktrunk（wt）で worktree を作る・消す手順（worktree-flow）"
+      "description": "Worktrunk（wt）で worktree を作る・消す手順（worktree-flow）。セッション開始時に、マージ済み PR の worktree が残っていれば ~/.claude/hook-observe.log に記録する"
     },
     {
       "name": "herdr",
