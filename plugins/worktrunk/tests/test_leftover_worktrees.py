@@ -124,7 +124,42 @@ class LeftoverWorktreeTests(unittest.TestCase):
             "branch": self.branch,
             "pr": pr["number"],
             "url": pr["url"],
+            "in_session_cwd": True,
         })
+
+    def test_session_cwd_in_worktree_subdirectory(self):
+        self.add_worktree()
+        subdirectory = self.linked / "subdirectory"
+        subdirectory.mkdir()
+
+        self.run_hook(self.merged_pr(), cwd=subdirectory)
+
+        records = self.read_log()
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["worktree"], str(self.linked))
+        self.assertIs(records[0]["in_session_cwd"], True)
+
+    def test_session_cwd_in_main_worktree(self):
+        self.add_worktree()
+
+        self.run_hook(self.merged_pr(), cwd=self.repo)
+
+        records = self.read_log()
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["worktree"], str(self.linked))
+        self.assertIs(records[0]["in_session_cwd"], False)
+
+    def test_session_cwd_in_worktree_with_same_path_prefix(self):
+        self.add_worktree()
+        other_worktree = self.linked.with_name(self.linked.name + "-other")
+        self.git("worktree", "add", "-b", "feature/other", str(other_worktree))
+
+        self.run_hook(self.merged_pr(), cwd=other_worktree)
+
+        records = self.read_log()
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["worktree"], str(self.linked))
+        self.assertIs(records[0]["in_session_cwd"], False)
 
     def test_local_head_is_ancestor_of_pr_head(self):
         self.add_worktree()
