@@ -43,7 +43,7 @@ description: ドキュメントや手順書を、外部の資源に頼らない1
 - 図は stack-diagram skill を呼んで作る。ここで手順を書き写さず、stack-diagram の手順に従う
 - 図の中の文字にも 3 の決まりを当てる。日本語の図は `lang="ja"` にする
 - stack-diagram の出力の HTML を `<名前>-fig1.diagram.html` として保存し、そこからライトの PNG を1枚だけ `<名前>-fig1.png` に書き出す。図を直すときは diagram.html を直して PNG を作り直す
-- 下書きの `<figure>` に `<img src="<名前>-fig1.png">` と書く。srcset は使わない
+- 下書きの `<figure>` に `<img src="<名前>-fig1.png">` と書く。srcset は使わない。6 で PNG をインラインの `<svg>` 内の `<image>` に data URI として埋め込む
 - 各図に `<figcaption>`（「図1 〜」）と、内容が分かる `alt` を付ける
 
 ## 5. 推敲
@@ -53,6 +53,7 @@ description: ドキュメントや手順書を、外部の資源に頼らない1
 ## 6. 1ファイルにまとめる
 
 画像を data URI にして完成のファイルに埋め込む。`<skill>` はこの skill のディレクトリ、`<保存先>` は 1 で決めたフォルダ。どちらも絶対パスで書く。
+`inline_images.py` は PNG の `<img>` をインラインの `<svg>` に置き換える。
 
 ```bash
 python3 <skill>/scripts/inline_images.py <保存先>/<名前>.draft.html <保存先>/<名前>.html
@@ -67,11 +68,12 @@ python3 <skill>/scripts/check_doc.py <保存先>/<名前>.html
 ```
 
 `FAIL:` の行が違反の場所と前後の文字を示す。FAIL が出たら下書きを直し、6 から打ち直す。完成のファイルは直さない（6 で上書きされる）。`PASS` が出るまで繰り返し、検査を通さずに完了としない。
+完成の HTML に PNG の `<img>` が残っている場合は `check_doc.py` が `FAIL` を出す。
 
 ## 完了条件
 
 - 保存先に1枚の HTML があり、check_doc.py が `PASS` を出す
-- 図があるときは stack-diagram で作り、HTML に埋め込んでいる
+- 図があるときは stack-diagram の PNG をインラインの `<svg>` で埋め込んでいる
 - yomiyasu で推敲した
 
 ## 完了報告

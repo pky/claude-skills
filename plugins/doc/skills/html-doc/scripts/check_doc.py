@@ -122,7 +122,10 @@ class DocumentCheck(HTMLParser):
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
         element_id = attributes.get("id")
-        for resource in RESOURCE_ATTRIBUTES.get(tag, ()):
+        resources = RESOURCE_ATTRIBUTES.get(tag, ())
+        if tag == "image" and any(element == "svg" for element, _, _ in self.elements):
+            resources = ("href", "xlink:href")
+        for resource in resources:
             if resource not in attributes:
                 continue
             location = f"<{tag} {resource}>"
@@ -132,6 +135,12 @@ class DocumentCheck(HTMLParser):
                     self.check_reference(location, url)
             else:
                 self.check_reference(location, value)
+        if tag == "img":
+            src = attributes.get("src") or ""
+            if src.lower().startswith("data:image/png"):
+                self.failures.append(f"PNG の <img> を <svg> に置き換える: {src.partition(',')[0]!r}")
+            elif src.lower().endswith(".png"):
+                self.failures.append(f"PNG の <img> を <svg> に置き換える: {src!r}")
         if attributes.get("style"):
             self.check_css(attributes["style"], f"<{tag} style>")
 
