@@ -70,13 +70,18 @@ class CheckDocTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
         self.assertEqual(result.stdout.splitlines(), ["PASS"])
 
-    def assert_fail(self, html, *problem_values):
+    def failure_lines(self, html, count):
         result = self.check_html(html)
         self.assertEqual(result.returncode, 1, result.stderr or result.stdout)
         lines = result.stdout.splitlines()
-        self.assertEqual(len(lines), len(problem_values) or 1, result.stdout)
+        self.assertEqual(len(lines), count, result.stdout)
         for line in lines:
             self.assertRegex(line, r"^FAIL: \s*\S")
+        return lines
+
+    def assert_fail(self, html, *problem_values):
+        lines = self.failure_lines(html, len(problem_values) or 1)
+        for line in lines:
             if problem_values:
                 self.assertEqual(sum(value in line for value in problem_values), 1, line)
         for value in problem_values:
@@ -114,6 +119,46 @@ class CheckDocTests(unittest.TestCase):
             '<img srcset="data:image/png;base64,AA== 1x, data:image/png;base64,AQ== 2x"></body>',
         )
         self.assert_pass(self.check_html(html))
+
+    def test_img_data_png_fails_and_data_gif_passes(self):
+        gif = HTML.replace("</body>", '<img src="data:image/gif;base64,AA=="></body>')
+        self.assert_pass(self.check_html(gif))
+
+        png = HTML.replace("</body>", '<img src="data:image/png;base64,AA=="></body>')
+        [line] = self.failure_lines(png, 1)
+        self.assertIn("<svg>", line)
+        self.assertIn("data:image/png", line)
+
+    def test_external_png_img_reports_two_failures(self):
+        for value in ("a.png", "assets/chart.PnG"):
+            with self.subTest(value=value):
+                html = HTML.replace("</body>", f'<img src="{value}"></body>')
+                lines = self.failure_lines(html, 2)
+                for line in lines:
+                    self.assertIn(value, line)
+                self.assertEqual(sum("<svg>" in line for line in lines), 1, lines)
+                self.assertEqual(
+                    sum("外部参照" in line and "<svg>" not in line for line in lines), 1, lines,
+                )
+
+    def test_svg_image_references_allow_data_and_fragments_and_reject_external_values(self):
+        svg = (
+            '<svg xmlns="http://www.w3.org/2000/svg" '
+            'xmlns:xlink="http://www.w3.org/1999/xlink"><image {attributes}/></svg>'
+        )
+        for attribute in ("href", "xlink:href"):
+            for value in ("data:image/png;base64,AA==", "#embedded"):
+                with self.subTest(attribute=attribute, value=value):
+                    fragment = svg.format(attributes=f'{attribute}="{value}"')
+                    self.assert_pass(self.check_html(HTML.replace("</body>", fragment + "</body>")))
+            for value in EXTERNAL_VALUES:
+                with self.subTest(attribute=attribute, value=value):
+                    fragment = svg.format(attributes=f'{attribute}="{value}"')
+                    self.assert_fail(HTML.replace("</body>", fragment + "</body>"), value)
+
+        with self.subTest(attribute="href, xlink:href"):
+            fragment = svg.format(attributes='href="modern.png" xlink:href="legacy.png"')
+            self.assert_fail(HTML.replace("</body>", fragment + "</body>"), "modern.png", "legacy.png")
 
     def test_external_video_poster_object_data_and_embed_src_fail(self):
         for fragment, value in (
@@ -244,12 +289,17 @@ class CheckDocTests(unittest.TestCase):
             with self.subTest(fragment=fragment):
                 self.assert_pass(self.check_html(HTML.replace("</body>", fragment + "</body>")))
 
-    def test_reports_both_violations_on_separate_lines(self):
+    def test_reports_all_violations_on_separate_lines(self):
         url = "https://example.test/chart.png"
         html = HTML.replace(
             "</body>", f'<img src="{url}" alt="図"><p>結果です。</p></body>',
         )
-        self.assert_fail(html, url, "です")
+        lines = self.failure_lines(html, 3)
+        self.assertEqual(
+            sum(url in line and "外部参照" in line and "<svg>" not in line for line in lines), 1, lines,
+        )
+        self.assertEqual(sum(url in line and "<svg>" in line for line in lines), 1, lines)
+        self.assertEqual(sum("です" in line for line in lines), 1, lines)
 
     def test_missing_file_exits_with_code_two_and_reason(self):
         result = self.run_cli(self.root / "missing.html")
