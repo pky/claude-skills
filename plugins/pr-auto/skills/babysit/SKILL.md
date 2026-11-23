@@ -22,10 +22,10 @@ description: gh pr create で PR を作った直後から、マージできる�
    - 指摘を直すときの注意（触ってよい範囲、テストは変更禁止、やらないこと）と、まだ残っている事項
    - 最初の行に「この会話は PR #<番号> の見張り役。pr-auto:babysit の決まりで見張り、別の会話へ渡さない」
    - 2行目に「最初に `cd <worktree の絶対パス>` だけを1回実行してから作業する」
-2. ペインの分割先は herdr:codex-in-herdr スキルの決め方に従い、`--cwd <メインの作業ツリー>`（`git worktree list` の先頭の行のパス）を付けて割る。worktree では割らない（Claude Code は起動した場所に `.claude/.cc-writes` を作り直すので、worktree で起動すると、片付けたあとに空のフォルダが残る）。返る pane_id を控える
+2. ペインの分割先は herdr:codex-in-herdr スキルの決め方に従い、`--cwd <メインの作業ツリー>`（`git worktree list` の先頭の行のパス）を付けて割る。worktree では割らない（Claude Code は、起動した場所と cd した今の場所に `.claude/.cc-writes` を作り直すので、worktree で起動すると、片付けたあとに空のフォルダが残る）。返る pane_id を控える
 3. `herdr agent start babysit-<リポジトリ名>-<PR 番号> --kind claude --pane <pane_id>` で Claude を起動する。agent 名は動いている agent の中で一意でなければならないので、リポジトリ名を入れる（32文字を超えるならリポジトリ名を切り詰める）。準備ができるまで待って返る
 4. `herdr agent prompt <pane_id> "Read <メモの絶対パス> and follow it. Run pr-auto:babysit for PR #<番号>." --wait --until working --timeout 60000` で渡す。3か4が失敗したら、`herdr agent read <pane_id>` で画面を読んで原因を報告に書き、渡すのをやめて元の会話が自分で見張る
-5. 報告には、PR の URL、渡し先の pane_id、メモの絶対パスを書く。ペインは閉じない（見張り役の最後の報告を利用者が読むため）
+5. 報告の前に、元の会話はメインの作業ツリーへ `cd` だけを1回実行し、worktree から出る（出ないと、片付けたあとに元の会話が空のフォルダを作り直す）。報告には、PR の URL、渡し先の pane_id、メモの絶対パスを書く。ペインは閉じない（見張り役の最後の報告を利用者が読むため）
 6. PR がマージされたあとの片付けは見張り役だけが行う。元の会話が利用者からマージを聞いたら、自分では片付けず、`herdr agent prompt <pane_id> "PR #<番号> was merged. Clean up per pr-auto:babysit."` で見張り役に伝える。見張り役は、片付けの前に自分の /loop を止める（3ラウンドを超えたあとはループが続いているため）
 
 ## 毎回の確認の手順
