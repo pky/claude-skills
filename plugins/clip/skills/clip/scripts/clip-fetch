@@ -1,0 +1,67 @@
+#!/bin/sh
+# clip 用の取得スクリプト。curl を呼ぶのはここだけにする。
+# 使い方: clip-fetch <url> <出力ファイル>
+# 通信先は r.jina.ai と api.fxtwitter.com の2つに限る。任意の URL へ直接は送らない。
+set -eu
+
+if [ "$#" -ne 2 ]; then
+  echo "使い方: clip-fetch <url> <出力ファイル>" >&2
+  exit 2
+fi
+
+url=$1
+out=$2
+
+case "$url" in
+  http://*|https://*) ;;
+  *)
+    echo "http か https の URL だけを受け付ける: $url" >&2
+    exit 2
+    ;;
+esac
+
+# スキームを外したホスト以降の部分
+rest=${url#*://}
+host=${rest%%/*}
+path=${rest#"$host"}
+# 振り分け用に、ホストを小文字にして既定のポートを外す
+host_key=$(printf '%s' "$host" | tr '[:upper:]' '[:lower:]')
+host_key=${host_key%:443}
+
+# --disable は .curlrc を読まないため、最初の引数に置く。
+# リダイレクトは追わない（許可した2つ以外のホストへ行かないため）。
+# --globoff は URL の [] や {} を範囲指定として解釈させないため。
+case "$host_key" in
+  x.com|www.x.com|twitter.com|www.twitter.com|mobile.twitter.com)
+    # X の投稿は fxtwitter の API で JSON を取る
+    code=$(curl --disable --silent --show-error --globoff \
+      --proto '=https' --max-time 90 --max-filesize 10000000 \
+      --output "$out" --write-out '%{http_code}' \
+      "https://api.fxtwitter.com$path")
+    ;;
+  *)
+    # それ以外は Jina Reader で本文を Markdown にして取る。
+    # # 以降で記事を選ぶサイトのため、URL は POST の本文で丸ごと渡す。
+    code=$(curl --disable --silent --show-error --globoff \
+      --proto '=https' --max-time 90 --max-filesize 10000000 \
+      --output "$out" --write-out '%{http_code}' \
+      --data-urlencode "url=$url" \
+      "https://r.jina.ai/")
+    ;;
+esac
+
+if [ "$code" != "200" ]; then
+  echo "取得に失敗した: HTTP $code" >&2
+  exit 1
+fi
+
+# Jina は元のページがエラーでも 200 を返し、先頭の Warning 行に書くことがある
+if head -n 10 "$out" | grep -q '^Warning: Target URL returned error'; then
+  head -n 10 "$out" | grep '^Warning: Target URL returned error' >&2
+  exit 1
+fi
+
+lines=$(wc -l < "$out" | tr -d ' ')
+bytes=$(wc -c < "$out" | tr -d ' ')
+echo "保存先: $out"
+echo "行数: $lines / バイト数: $bytes"
