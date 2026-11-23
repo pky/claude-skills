@@ -1,1 +1,1 @@
-{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"今作った PR で pr-auto:babysit スキルを呼び、/loop 5m の見張りを始める。"}}
+{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"今作った PR で pr-auto:babysit スキルを呼ぶ。Herdr の中では見張りを新しいペインの Claude に渡し、Herdr の外では /loop 5m の見張りを始める。"}}
