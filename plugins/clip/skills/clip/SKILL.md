@@ -19,7 +19,8 @@ allowed-tools: Read(~/.codex/AGENTS.md) Read(~/.codex/skills/**)
 - `<CLIP_FETCH> <url> <出力ファイル>` を Bash で1回実行する。出力ファイルはセッションの scratchpad に置く。
   - x.com と twitter.com は api.fxtwitter.com の JSON、それ以外は r.jina.ai の Markdown を保存する。curl を呼ぶのはこのスクリプトだけで、Bash から curl を直接打たない。
   - auto mode では `allowed_domains` に、X なら `api.fxtwitter.com`、それ以外なら `r.jina.ai` を入れる。
-- クエリに署名らしい値（`X-Amz-Signature`、`sig=`、`expires=` など）がある URL は、外部のサービスに渡す前に取得してよいか利用者に聞く。
+- クエリかフラグメント（`#` 以降）に署名や認証情報らしい値（`X-Amz-Signature`、`sig=`、`expires=`、`access_token=` など）がある URL は、外部のサービスに渡す前に取得してよいか利用者に聞く。
+- `<CLIP_FETCH>` の呼び出しを guard の hook がパスの理由で止めたら、案内どおり実体のパスで呼び直す。
 - 保存したファイルは、先に Grep で行番号付きの見出しを全件拾う（`^#` と、`^===` か `^---` の行の1行上）。そのあと Read で読み、ツール名、コマンド、設定名、ファイル名を原文のまま拾う。Read は既定で2000行までなので、長いファイルは offset で続きを読む。
 - 投稿の JSON は、本文、投稿者、引用元、記事やリンクの URL を原文のまま拾う。リンク先が本題なら、そのリンク先も同じ手順で取る。
 - スクリプトが失敗したとき、または投稿の取得で JSON でなく HTML が保存されたときは、取得できなかったと書き、推測で補わない。

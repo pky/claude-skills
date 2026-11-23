@@ -24,11 +24,14 @@ esac
 rest=${url#*://}
 host=${rest%%/*}
 path=${rest#"$host"}
+# 振り分け用に、ホストを小文字にして既定のポートを外す
+host_key=$(printf '%s' "$host" | tr '[:upper:]' '[:lower:]')
+host_key=${host_key%:443}
 
 # --disable は .curlrc を読まないため、最初の引数に置く。
 # リダイレクトは追わない（許可した2つ以外のホストへ行かないため）。
 # --globoff は URL の [] や {} を範囲指定として解釈させないため。
-case "$host" in
+case "$host_key" in
   x.com|www.x.com|twitter.com|www.twitter.com|mobile.twitter.com)
     # X の投稿は fxtwitter の API で JSON を取る
     code=$(curl --disable --silent --show-error --globoff \
@@ -49,6 +52,12 @@ esac
 
 if [ "$code" != "200" ]; then
   echo "取得に失敗した: HTTP $code" >&2
+  exit 1
+fi
+
+# Jina は元のページがエラーでも 200 を返し、先頭の Warning 行に書くことがある
+if head -n 10 "$out" | grep -q '^Warning: Target URL returned error'; then
+  head -n 10 "$out" | grep '^Warning: Target URL returned error' >&2
   exit 1
 fi
 
