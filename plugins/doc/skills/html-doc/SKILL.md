@@ -1,6 +1,6 @@
 ---
 name: html-doc
-description: ドキュメントや手順書を、外部の資源に頼らない1枚の HTML で作る。目次、要約、更新日、印刷用のスタイルを入れ、図は stack-diagram で作り、日本語は yomiyasu で推敲する。ドキュメント、手順書、設計資料、説明資料、まとめを作ってと頼まれたときに使う。README や AGENTS.md などリポジトリの Markdown を直すときは使わない。
+description: ドキュメントや手順書を、外部の資源に頼らない1枚の HTML で作る。目次、要約、更新日、印刷用のスタイルを入れ、図は stack-diagram か diagram-design で作り、日本語は yomiyasu で推敲する。ドキュメント、手順書、設計資料、説明資料、まとめを作ってと頼まれたときに使う。README や AGENTS.md などリポジトリの Markdown を直すときは使わない。
 ---
 
 # html-doc
@@ -15,7 +15,7 @@ description: ドキュメントや手順書を、外部の資源に頼らない1
 - 同じフォルダに次のファイルを置く
   - 下書き: `<名前>.draft.html`。書くのも直すのもこのファイル
   - 完成: `<名前>.html`。6 で下書きから作る。手で直さない
-  - 図: `<名前>-fig1.png`、`<名前>-fig1.diagram.html`（stack-diagram の出力の HTML）。2枚目からは fig2、fig3
+  - 図: `<名前>-fig1.png`、`<名前>-fig1.diagram.html`（stack-diagram か diagram-design の出力の HTML）。2枚目からは fig2、fig3
 - 書き始める前に、同じ名前のファイルがあれば上書きしてよいか利用者に確かめる。自分がこの作業で作ったファイルを 6 と 7 の繰り返しで上書きするときは確かめない
 - リポジトリの中には置かない
 
@@ -40,9 +40,12 @@ description: ドキュメントや手順書を、外部の資源に頼らない1
 
 ## 4. 図
 
-- 図は stack-diagram skill を呼んで作る。ここで手順を書き写さず、stack-diagram の手順に従う
+- 図は種類で skill を分けて呼ぶ。ここで手順を書き写さず、呼んだ skill の手順に従う
+  - 製品やサービスのロゴを並べる構成図（技術スタック、インフラ、サービスのつながり）: stack-diagram skill
+  - それ以外の図（シーケンス、フローチャート、状態遷移、ER、タイムライン、スイムレーンなど）: diagram-design skill
+- diagram-design ではシステムフォントを指定し、Google Fonts を読み込ませない。スタイルガイドの初回確認では既定の見た目のまま進める
 - 図の中の文字にも 3 の決まりを当てる。日本語の図は `lang="ja"` にする
-- stack-diagram の出力の HTML を `<名前>-fig1.diagram.html` として保存し、そこからライトの PNG を1枚だけ `<名前>-fig1.png` に書き出す。図を直すときは diagram.html を直して PNG を作り直す
+- 呼んだ skill の出力の HTML を `<名前>-fig1.diagram.html` として保存し、その skill の書き出し手順でライトの PNG を1枚だけ `<名前>-fig1.png` に書き出す。図を直すときは diagram.html を直して PNG を作り直す
 - 下書きの `<figure>` に `<img src="<名前>-fig1.png">` と書く。srcset は使わない。6 で PNG をインラインの `<svg>` 内の `<image>` に data URI として埋め込む
 - 各図に `<figcaption>`（「図1 〜」）と、内容が分かる `alt` を付ける
 
@@ -73,12 +76,12 @@ python3 <skill>/scripts/check_doc.py <保存先>/<名前>.html
 ## 完了条件
 
 - 保存先に1枚の HTML があり、check_doc.py が `PASS` を出す
-- 図があるときは stack-diagram の PNG をインラインの `<svg>` で埋め込んでいる
+- 図があるときは stack-diagram か diagram-design の PNG をインラインの `<svg>` で埋め込んでいる
 - yomiyasu で推敲した
 
 ## 完了報告
 
 - 保存先の絶対パス
 - check_doc.py の結果
-- 図の数と、stack-diagram で作ったか
+- 図の数と、図ごとに使った skill（stack-diagram か diagram-design）
 - ブラウザで開くコマンド（`open <名前>.html` の絶対パス）。sandbox では open が使えないため、利用者に打ってもらう
