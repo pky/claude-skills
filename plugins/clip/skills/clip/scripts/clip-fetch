@@ -1,0 +1,48 @@
+#!/bin/sh
+# clip 用の取得スクリプト。curl を呼ぶのはここだけにする。
+# 使い方: clip-fetch <url> <出力ファイル>
+# 通信先は r.jina.ai と api.fxtwitter.com の2つに限る。任意の URL へ直接は送らない。
+set -eu
+
+if [ "$#" -ne 2 ]; then
+  echo "使い方: clip-fetch <url> <出力ファイル>" >&2
+  exit 2
+fi
+
+url=$1
+out=$2
+
+case "$url" in
+  http://*|https://*) ;;
+  *)
+    echo "http か https の URL だけを受け付ける: $url" >&2
+    exit 2
+    ;;
+esac
+
+# スキームを外したホスト以降の部分
+rest=${url#*://}
+host=${rest%%/*}
+path=${rest#"$host"}
+
+case "$host" in
+  x.com|www.x.com|twitter.com|www.twitter.com|mobile.twitter.com)
+    # X の投稿は fxtwitter の API で JSON を取る
+    target="https://api.fxtwitter.com$path"
+    ;;
+  *)
+    # それ以外は Jina Reader で本文を Markdown にして取る
+    target="https://r.jina.ai/$url"
+    ;;
+esac
+
+curl --silent --show-error --fail --location \
+  --proto '=https' --proto-redir '=https' \
+  --max-time 90 --max-filesize 10000000 \
+  --output "$out" \
+  "$target"
+
+lines=$(wc -l < "$out" | tr -d ' ')
+bytes=$(wc -c < "$out" | tr -d ' ')
+echo "保存先: $out"
+echo "行数: $lines / バイト数: $bytes"
