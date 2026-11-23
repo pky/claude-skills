@@ -25,22 +25,32 @@ rest=${url#*://}
 host=${rest%%/*}
 path=${rest#"$host"}
 
+# --disable は .curlrc を読まないため、最初の引数に置く。
+# リダイレクトは追わない（許可した2つ以外のホストへ行かないため）。
+# --globoff は URL の [] や {} を範囲指定として解釈させないため。
 case "$host" in
   x.com|www.x.com|twitter.com|www.twitter.com|mobile.twitter.com)
     # X の投稿は fxtwitter の API で JSON を取る
-    target="https://api.fxtwitter.com$path"
+    code=$(curl --disable --silent --show-error --globoff \
+      --proto '=https' --max-time 90 --max-filesize 10000000 \
+      --output "$out" --write-out '%{http_code}' \
+      "https://api.fxtwitter.com$path")
     ;;
   *)
-    # それ以外は Jina Reader で本文を Markdown にして取る
-    target="https://r.jina.ai/$url"
+    # それ以外は Jina Reader で本文を Markdown にして取る。
+    # # 以降で記事を選ぶサイトのため、URL は POST の本文で丸ごと渡す。
+    code=$(curl --disable --silent --show-error --globoff \
+      --proto '=https' --max-time 90 --max-filesize 10000000 \
+      --output "$out" --write-out '%{http_code}' \
+      --data-urlencode "url=$url" \
+      "https://r.jina.ai/")
     ;;
 esac
 
-curl --silent --show-error --fail --location \
-  --proto '=https' --proto-redir '=https' \
-  --max-time 90 --max-filesize 10000000 \
-  --output "$out" \
-  "$target"
+if [ "$code" != "200" ]; then
+  echo "取得に失敗した: HTTP $code" >&2
+  exit 1
+fi
 
 lines=$(wc -l < "$out" | tr -d ' ')
 bytes=$(wc -c < "$out" | tr -d ' ')
