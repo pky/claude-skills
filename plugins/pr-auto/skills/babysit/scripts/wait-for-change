@@ -23,7 +23,9 @@ def gh_json(*args):
     except OSError as exc:
         raise PollError(f"{command} を起動できません ({exc.strerror})") from exc
     if result.returncode != 0:
-        raise PollError(f"{command} が終了コード {result.returncode} を返しました")
+        stderr_lines = result.stderr.decode("utf-8", "replace").strip().splitlines()
+        detail = f": {stderr_lines[-1].strip()}" if stderr_lines else ""
+        raise PollError(f"{command} が終了コード {result.returncode} を返しました{detail}")
 
     try:
         payload = json.loads(result.stdout)
