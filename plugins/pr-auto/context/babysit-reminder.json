@@ -1,1 +1,1 @@
-{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"今作った PR で pr-auto:babysit スキルを呼ぶ。環境変数 HERDR_ENV が 1 なら見張りを新しいペインの Claude に渡し、そうでなければスキルの「変化を待つ見張り」を始める。"}}
+{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"今作った PR で pr-auto:babysit スキルを呼ぶ。環境変数 HERDR_ENV が 1 なら見張りを新しいペインの Claude に渡し、そうでなければ /loop 5m の見張りを始める。"}}
