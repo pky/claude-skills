@@ -23,8 +23,9 @@ def gh_json(*args):
     except OSError as exc:
         raise PollError(f"{command} を起動できません ({exc.strerror})") from exc
     if result.returncode != 0:
-        stderr_lines = result.stderr.decode("utf-8", "replace").strip().splitlines()
-        detail = f": {stderr_lines[-1].strip()}" if stderr_lines else ""
+        stderr_lines = result.stderr.decode("utf-8", "replace").splitlines()
+        stderr_text = " / ".join(line.strip() for line in stderr_lines if line.strip())
+        detail = f": {stderr_text}" if stderr_text else ""
         raise PollError(f"{command} が終了コード {result.returncode} を返しました{detail}")
 
     try:
