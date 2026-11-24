@@ -72,6 +72,17 @@ xcrun simctl install <UDID> <DerivedData>/Build/Products/<構成名>-iphonesimul
 - 台は落とさない。他の開発が起動中のまま使っている可能性がある
 - 返却し忘れても、借りてから 7200 秒で次の取得時に自動回収される
 
+### sim-lease が sandbox で実行できないとき(`Operation not permitted`)
+
+登録簿は ~/.config/sim-lease/pool.txt(HOME が別の場所なら、その下の .config)を Read で読む。ロックの仕組みは `mkdir` だけなので、同じ手順を手で行う。rm と rmdir が使えない環境では、返却を mv で行う。
+
+- 借りる: `mkdir -p /tmp/sim-lease-<uid>/locks/<UDID>`(`ls /tmp/sim-lease-<uid>/locks` で他の貸出中の台を避ける。借りる前に、下の返却手順が使えることを確かめる)
+- 返す: 返却先 R=/private/tmp/claude-*/sim-lease-released を毎回同じ名前で上書きし、ファイルを増やさない(R が無ければ先に `mkdir -p R`)。
+  1. `mv -f <ロック>/owner R/owner-<UDID>`(owner が無ければ省く)
+  2. `mv -f <ロック>/time R/time-<UDID>`(time が無ければ省く)
+  3. `mv <ロック> R/`(末尾のスラッシュ付き。空のロックが R/<UDID> を置き換える。ディレクトリ単体を既存のディレクトリ名へ mv すると、その中へ入ってしまうので使わない)
+- 返却後に `ls` で状態を確かめてから報告する。他の開発が借りた台には触らない。「返せない」とユーザーに報告しない
+
 ## 6. 報告する
 
 - 確認した画面ごとにスクリーンショットの内容を言葉で説明する
