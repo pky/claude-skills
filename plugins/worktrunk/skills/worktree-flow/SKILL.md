@@ -5,7 +5,7 @@ description: Worktrunk（wt コマンド）で worktree を作る、設定や資
 
 # Worktrunk の手順
 
-- 開始前に `git status --short`、`git worktree list`、ブランチと基点コミットを確認する。新規作成は `wt switch --create feature/<topic> --base <base> --no-hooks` を基本とし、既存ブランチの再利用時も `--no-hooks` を付ける。命名はリポジトリ指定を優先し、既存変更の無断移動・上書きをしない。
+- 開始前に `git status --short`、`git worktree list`、ブランチと基点コミットを確認する。新規作成は次の項目の `~/mac_home/hooks/wt-create` で行い（`--no-hooks` は `wt-create` が付ける）、既存ブランチの再利用時も `--no-hooks` を付ける。命名はリポジトリ指定を優先し、既存変更の無断移動・上書きをしない。
 - worktree を作るときは `~/mac_home/hooks/wt-create feature/<topic> --base <基点>` を使う。sandbox の外で `wt switch --create` を動かす入口で、`wt switch --create` を直接打つと sandbox では `.git/worktrees` に書けずに失敗し、sandbox を外すと許可リストに止められる。この worktree では Claude は commit できない（sandbox が `.git/worktrees` への書き込みを止め、settings.json の allowWrite でも開かない）ので、実装とコミットは Codex に任せる
 - メインの作業ツリーでブランチを切り替えてよいのは、Claude 自身がコミットする作業（Codex に出さない1行の修正や文書だけの変更）だけ。そのときも、メインの作業ツリーに未コミットの変更がなく、ほかのセッションも使っていなければ、そこで `git branch --no-track feature/<topic> origin/<基点>` で作り、次の呼び出しで `git switch feature/<topic>` に切り替えて作業する（`--no-track` がないと upstream を `.git/config` に書けずに途中で止まる。`git switch -c` は auto mode の判定に止められる）。Codex に実装を出す作業では、この方法を使わない。利用者が普段使うメインの作業ツリーが feature ブランチのまま残るため
 - worktree での作業は `cd` だけの1回の呼び出しで入ってから行う。`git -C` は使わない。EnterWorktree と ExitWorktree は許可のダイアログが出るので使わない
