@@ -37,12 +37,12 @@ herdr pane split --current --direction right --cwd '<作業先の絶対パス>' 
 
 同じworktreeの編集者は常に1体とする。テスト担当が終了してから実装担当へ引き継ぎ、再委譲前に旧担当が編集を止めたことを確認する。独立した実装項目は既存のWorktrunkルールに従って分離する。環境を変更するテストと実装を並行させない。
 
-利用可能なモデルからグローバル指示の担当別初期値を選ぶ。CLI用IDはSolが `gpt-6.1-sol`、Terraが `gpt-6.1-terra`、Lunaが `gpt-6-luna`、Astraが `gpt-6-astra`。モデルが使えなければ許可内の代替か制約報告とし、利用可能と見なして先へ進めない。
+利用可能なモデルからグローバル指示の担当別初期値を選ぶ。CLI用IDはSolが `gpt-6.2-sol`、Terraが `gpt-6.1-terra`、Lunaが `gpt-6-luna`、Astraが `gpt-6-astra`。モデルが使えなければ許可内の代替か制約報告とし、利用可能と見なして先へ進めない。
 
 新規の空きシェルペインへ起動する例:
 
 ```bash
-herdr agent start implement-task --kind codex --pane '<返されたペインID>' -- --model gpt-6.1-sol --config 'model_reasoning_effort="high"' --sandbox workspace-write
+herdr agent start implement-task --kind codex --pane '<返されたペインID>' -- --model gpt-6.2-sol --config 'model_reasoning_effort="high"' --sandbox workspace-write
 ```
 
 native Codex引数は `--` の後へ渡す。`agent start` の成功は同じペインでCodexが認識され、入力可能になったことを示す。起動がblockedになったら `agent get` / `agent read` で内容を確認する。
